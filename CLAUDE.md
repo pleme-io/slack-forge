@@ -12,11 +12,12 @@ Bot tokens flow through sops → disk → MCP server for Claude Code integration
 
 ```bash
 slack-forge apply [--manifest path.yaml]   # Create or update Slack app from manifest
+slack-forge install [--manifest path.yaml] # Install app to workspace (OAuth flow, captures bot token)
 slack-forge diff [--manifest path.yaml]    # Show what would change
 slack-forge export --app-id A08TXQ...      # Export current app config as YAML
 slack-forge validate [--manifest path.yaml] # Validate manifest without applying
-slack-forge status                          # Show managed apps
-slack-forge list                            # List all apps for this config token
+slack-forge delete --app-id A08TXQ...      # Delete a managed Slack app
+slack-forge status                          # Show managed apps and tokens
 ```
 
 Token resolution order: `--token` flag → `SLACK_CONFIG_TOKEN` env → `~/.config/slack-forge/config-token` file.
@@ -47,14 +48,18 @@ blackmatter.components.slack = {
 1. Generate a Configuration Token at api.slack.com (Settings → App Configuration Tokens)
 2. Store in sops: `sops --set '["slack"]["akeyless"]["config-token"] "xoxe.xoxp-..."' secrets.yaml`
 3. Define app in YAML manifest (see `manifests/claude-mcp.yaml` for reference)
-4. `slack-forge apply` — creates the app, returns credentials
-5. Store bot token in sops: `sops --set '["slack"]["akeyless"]["bot-token"] "xoxb-..."' secrets.yaml`
-6. Rebuild nix — MCP server reads bot token, Claude Code gets Slack tools
+4. `slack-forge apply` — creates the app via Manifest API, stores credentials in local state
+5. `slack-forge install` — opens browser for OAuth, captures bot token automatically
+6. Store bot token in sops (command printed by install), rebuild nix
 
 ## App manifests
 
 Manifests follow the [Slack App Manifest schema](https://api.slack.com/reference/manifests).
 See `manifests/claude-mcp.yaml` for a complete example with all MCP-relevant scopes.
+
+## Build
+
+Uses `substrate/lib/rust-tool-release-flake.nix` pattern. Exposes `homeManagerModules.default`.
 
 ## Architecture
 
@@ -64,8 +69,8 @@ manifests/*.yaml (source of truth)
   ▼ slack-forge apply
 Slack Manifest API (creates/updates app)
   │
-  ▼ returns
-Bot Token (xoxb-...) + App Credentials
+  ▼ slack-forge install
+OAuth flow → localhost callback → bot token captured
   │
   ▼ stored in
 sops secrets.yaml → ~/.config/slack/akeyless/bot-token
