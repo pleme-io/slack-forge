@@ -20,10 +20,12 @@
         version = "0.1.0";
         src = ./.;
         cargoLock.lockFile = ./Cargo.lock;
-        nativeBuildInputs = pkgs.lib.optionals pkgs.stdenv.isDarwin [
-          pkgs.darwin.apple_sdk.frameworks.Security
-          pkgs.darwin.apple_sdk.frameworks.SystemConfiguration
-        ];
+        buildInputs = pkgs.lib.optionals pkgs.stdenv.isDarwin (
+          if pkgs ? apple-sdk then [ pkgs.apple-sdk ]
+          else pkgs.lib.optionals (pkgs ? darwin) (with pkgs.darwin.apple_sdk.frameworks; [
+            Security SystemConfiguration
+          ])
+        );
         meta = {
           description = "Declarative Slack app lifecycle management via Manifest API";
           homepage = "https://github.com/pleme-io/slack-forge";
