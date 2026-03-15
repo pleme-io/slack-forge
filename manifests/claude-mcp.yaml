@@ -1,0 +1,45 @@
+# Slack App manifest for Claude Code MCP integration
+# Apply with: slack-forge apply --manifest manifests/claude-mcp.yaml
+#
+# This creates a bot with read/write access to channels, DMs, and search.
+# The bot token (xoxb-) is used by the MCP server to interact with Slack.
+display_information:
+  name: Claude Code MCP
+  description: Claude Code AI assistant integration via MCP
+  background_color: "#2E3440"
+
+features:
+  bot_user:
+    display_name: Claude Code
+    always_online: true
+
+oauth_config:
+  scopes:
+    bot:
+      # Channel access
+      - channels:history
+      - channels:read
+      - groups:history
+      - groups:read
+      # DM access
+      - im:history
+      - im:read
+      - mpim:history
+      - mpim:read
+      # Messaging
+      - chat:write
+      # Search
+      - search:read
+      # Users
+      - users:read
+      - users.profile:read
+      # Reactions
+      - reactions:read
+      - reactions:write
+      # Files
+      - files:read
+
+settings:
+  org_deploy_enabled: false
+  socket_mode_enabled: false
+  token_rotation_enabled: false

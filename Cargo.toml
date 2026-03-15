@@ -1,0 +1,39 @@
+[package]
+name = "slack-forge"
+version = "0.1.0"
+edition = "2024"
+rust-version = "1.89.0"
+description = "Declarative Slack app lifecycle management via Manifest API"
+license = "MIT"
+authors = ["Pleme Team <team@pleme.io>"]
+repository = "https://github.com/pleme-io/slack-forge"
+homepage = "https://github.com/pleme-io/slack-forge"
+keywords = ["slack", "manifest", "infrastructure", "nix"]
+categories = ["command-line-utilities", "development-tools"]
+
+[[bin]]
+name = "slack-forge"
+path = "src/main.rs"
+
+[dependencies]
+clap = { version = "4.5", features = ["derive"] }
+anyhow = "1.0"
+serde = { version = "1.0", features = ["derive"] }
+serde_json = "1"
+serde_yaml = "0.9"
+reqwest = { version = "0.12", features = ["json", "rustls-tls"], default-features = false }
+tokio = { version = "1.40", features = ["full"] }
+colored = "2.1"
+dirs = "6.0"
+similar = "2.6"
+shellexpand = "3.1"
+chrono = "0.4"
+
+[lints.clippy]
+pedantic = "warn"
+
+[profile.release]
+opt-level = "z"
+lto = true
+codegen-units = 1
+strip = true
