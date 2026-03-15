@@ -178,10 +178,10 @@ impl SlackClient {
         );
     }
 
-    /// List apps managed by this configuration token.
-    pub async fn app_list(&self) -> Result<Vec<AppListEntry>> {
-        let body = serde_json::json!({});
-        let data: AppListData = self.post("apps.manifest.list", &body).await?;
-        Ok(data.apps.unwrap_or_default())
+    /// Delete a Slack app.
+    pub async fn manifest_delete(&self, app_id: &str) -> Result<()> {
+        let body = serde_json::json!({ "app_id": app_id });
+        let _: serde_json::Value = self.post("apps.manifest.delete", &body).await?;
+        Ok(())
     }
 }

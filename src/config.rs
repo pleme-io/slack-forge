@@ -2,7 +2,6 @@ use anyhow::{Context, Result};
 use serde::{Deserialize, Serialize};
 use std::path::PathBuf;
 
-/// State file tracking managed apps: ~/.config/slack-forge/state.yaml
 #[derive(Debug, Default, Serialize, Deserialize)]
 pub struct ForgeState {
     #[serde(default)]
@@ -11,16 +10,18 @@ pub struct ForgeState {
 
 #[derive(Debug, Serialize, Deserialize, Clone)]
 pub struct ManagedApp {
-    /// Slack App ID (e.g., "A08TXQ...")
     pub app_id: String,
-    /// Human-readable name
     pub name: String,
-    /// Manifest file path used to create/update
     pub manifest_path: String,
-    /// Workspace where installed
     pub team_id: Option<String>,
-    /// Last update timestamp
     pub last_updated: Option<String>,
+    pub client_id: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub client_secret: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub bot_token: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub user_token: Option<String>,
 }
 
 impl ForgeState {
@@ -33,9 +34,7 @@ impl ForgeState {
 
     pub fn load() -> Result<Self> {
         let path = Self::path();
-        if !path.exists() {
-            return Ok(Self::default());
-        }
+        if !path.exists() { return Ok(Self::default()); }
         let content = std::fs::read_to_string(&path)
             .with_context(|| format!("failed to read {}", path.display()))?;
         serde_yaml::from_str(&content)
@@ -44,11 +43,8 @@ impl ForgeState {
 
     pub fn save(&self) -> Result<()> {
         let path = Self::path();
-        if let Some(parent) = path.parent() {
-            std::fs::create_dir_all(parent)?;
-        }
-        let content = serde_yaml::to_string(self)?;
-        std::fs::write(&path, content)?;
+        if let Some(parent) = path.parent() { std::fs::create_dir_all(parent)?; }
+        std::fs::write(&path, serde_yaml::to_string(self)?)?;
         Ok(())
     }
 
@@ -65,35 +61,17 @@ impl ForgeState {
     }
 }
 
-/// Resolve the configuration token from:
-/// 1. --token CLI flag
-/// 2. SLACK_CONFIG_TOKEN env var
-/// 3. ~/.config/slack-forge/config-token file
 pub fn resolve_token(explicit: Option<&str>) -> Result<String> {
-    if let Some(t) = explicit {
-        return Ok(t.to_string());
-    }
-
+    if let Some(t) = explicit { return Ok(t.to_string()); }
     if let Ok(t) = std::env::var("SLACK_CONFIG_TOKEN") {
-        if !t.is_empty() {
-            return Ok(t);
-        }
+        if !t.is_empty() { return Ok(t); }
     }
-
     let token_file = dirs::config_dir()
         .unwrap_or_else(|| PathBuf::from("~/.config"))
-        .join("slack-forge")
-        .join("config-token");
-
+        .join("slack-forge").join("config-token");
     if token_file.exists() {
         let t = std::fs::read_to_string(&token_file)?.trim().to_string();
-        if !t.is_empty() {
-            return Ok(t);
-        }
+        if !t.is_empty() { return Ok(t); }
     }
-
-    anyhow::bail!(
-        "no configuration token found. Set --token, SLACK_CONFIG_TOKEN env var, \
-         or write to ~/.config/slack-forge/config-token"
-    );
+    anyhow::bail!("no configuration token found. Set --token, SLACK_CONFIG_TOKEN, or ~/.config/slack-forge/config-token");
 }
