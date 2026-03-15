@@ -1,55 +1,41 @@
 {
-  description = "Declarative Slack app lifecycle management — Rust CLI + Nix HM module";
+  description = "slack-forge — declarative Slack app lifecycle management";
+
+  nixConfig = {
+    allow-import-from-derivation = true;
+  };
 
   inputs = {
     nixpkgs.url = "github:NixOS/nixpkgs/nixos-25.11";
+    crate2nix.url = "github:nix-community/crate2nix";
+    flake-utils.url = "github:numtide/flake-utils";
     substrate = {
       url = "github:pleme-io/substrate";
       inputs.nixpkgs.follows = "nixpkgs";
     };
-  };
-
-  outputs = { self, nixpkgs, substrate, ... }: let
-    systems = [ "aarch64-darwin" "x86_64-darwin" "x86_64-linux" "aarch64-linux" ];
-    forAllSystems = f: nixpkgs.lib.genAttrs systems (system: f system);
-  in {
-    packages = forAllSystems (system: let
-      pkgs = import nixpkgs { inherit system; };
-      slack-forge = pkgs.rustPlatform.buildRustPackage {
-        pname = "slack-forge";
-        version = "0.1.0";
-        src = ./.;
-        cargoLock.lockFile = ./Cargo.lock;
-        buildInputs = pkgs.lib.optionals pkgs.stdenv.isDarwin (
-          if pkgs ? apple-sdk then [ pkgs.apple-sdk ]
-          else pkgs.lib.optionals (pkgs ? darwin) (with pkgs.darwin.apple_sdk.frameworks; [
-            Security SystemConfiguration
-          ])
-        );
-        meta = {
-          description = "Declarative Slack app lifecycle management via Manifest API";
-          homepage = "https://github.com/pleme-io/slack-forge";
-          license = pkgs.lib.licenses.mit;
-          mainProgram = "slack-forge";
-        };
-      };
-    in {
-      inherit slack-forge;
-      default = slack-forge;
-    });
-
-    overlays.default = final: prev: {
-      slack-forge = self.packages.${final.system}.slack-forge;
+    devenv = {
+      url = "github:cachix/devenv";
+      inputs.nixpkgs.follows = "nixpkgs";
     };
-
-    homeManagerModules.default = import ./module;
-
-    devShells = forAllSystems (system: let
-      pkgs = import nixpkgs { inherit system; };
-    in {
-      default = pkgs.mkShellNoCC {
-        packages = [ pkgs.rustc pkgs.cargo pkgs.clippy pkgs.rust-analyzer ];
-      };
-    });
   };
+
+  outputs = {
+    self,
+    nixpkgs,
+    crate2nix,
+    flake-utils,
+    substrate,
+    devenv,
+    ...
+  }:
+    (import "${substrate}/lib/rust-tool-release-flake.nix" {
+      inherit nixpkgs crate2nix flake-utils devenv;
+    }) {
+      toolName = "slack-forge";
+      src = self;
+      repo = "pleme-io/slack-forge";
+    }
+    // {
+      homeManagerModules.default = import ./module;
+    };
 }
