@@ -28,8 +28,6 @@ oauth_config:
       - mpim:read
       # Messaging
       - chat:write
-      # Search
-      - search:read
       # Users
       - users:read
       - users.profile:read

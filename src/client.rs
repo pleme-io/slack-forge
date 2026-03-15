@@ -116,9 +116,14 @@ impl SlackClient {
             .with_context(|| format!("{endpoint} returned ok=true but no data"))
     }
 
+    /// Stringify manifest for the API (Slack expects manifest as a JSON string, not nested object).
+    fn manifest_string(manifest: &serde_json::Value) -> String {
+        serde_json::to_string(manifest).unwrap_or_default()
+    }
+
     /// Create a new Slack app from a manifest.
     pub async fn manifest_create(&self, manifest: &serde_json::Value) -> Result<(String, AppCredentials)> {
-        let body = serde_json::json!({ "manifest": manifest });
+        let body = serde_json::json!({ "manifest": Self::manifest_string(manifest) });
         let data: AppData = self.post("apps.manifest.create", &body).await?;
         let app_id = data.app_id.context("no app_id in response")?;
         let creds = data.credentials.context("no credentials in response")?;
@@ -127,7 +132,7 @@ impl SlackClient {
 
     /// Update an existing Slack app's manifest.
     pub async fn manifest_update(&self, app_id: &str, manifest: &serde_json::Value) -> Result<()> {
-        let body = serde_json::json!({ "app_id": app_id, "manifest": manifest });
+        let body = serde_json::json!({ "app_id": app_id, "manifest": Self::manifest_string(manifest) });
         let _: serde_json::Value = self.post("apps.manifest.update", &body).await?;
         Ok(())
     }
@@ -140,10 +145,37 @@ impl SlackClient {
     }
 
     /// Validate a manifest without creating/updating.
+    /// Returns errors list (empty = valid). Does NOT bail on ok=false since
+    /// the validate endpoint returns ok=false when there are validation errors.
     pub async fn manifest_validate(&self, manifest: &serde_json::Value) -> Result<Vec<ManifestError>> {
-        let body = serde_json::json!({ "manifest": manifest });
-        let data: ValidationData = self.post("apps.manifest.validate", &body).await?;
-        Ok(data.errors.unwrap_or_default())
+        let url = "https://slack.com/api/apps.manifest.validate";
+        let body = serde_json::json!({ "manifest": Self::manifest_string(manifest) });
+        let resp = self
+            .http
+            .post(url)
+            .bearer_auth(&self.token)
+            .json(&body)
+            .send()
+            .await
+            .context("validate request failed")?;
+
+        let text = resp.text().await?;
+        let parsed: serde_json::Value = serde_json::from_str(&text)?;
+
+        // Extract errors regardless of ok status
+        if let Some(errors) = parsed.get("errors") {
+            let errs: Vec<ManifestError> = serde_json::from_value(errors.clone())?;
+            return Ok(errs);
+        }
+
+        if parsed.get("ok").and_then(|v| v.as_bool()) == Some(true) {
+            return Ok(vec![]);
+        }
+
+        bail!(
+            "validate: {}",
+            parsed.get("error").and_then(|e| e.as_str()).unwrap_or("unknown error")
+        );
     }
 
     /// List apps managed by this configuration token.
