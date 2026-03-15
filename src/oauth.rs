@@ -63,7 +63,10 @@ pub async fn run_install(client_id: &str, client_secret: &str, scopes: &str, use
 
     println!("Waiting for OAuth callback on localhost:{REDIRECT_PORT}...");
 
-    let (mut stream, _) = listener.accept().await?;
+    let (mut stream, _) = tokio::time::timeout(
+        std::time::Duration::from_secs(120),
+        listener.accept()
+    ).await.context("OAuth timeout — no callback received within 2 minutes")??;
     let mut buf = vec![0u8; 4096];
     let n = stream.read(&mut buf).await?;
     let request = String::from_utf8_lossy(&buf[..n]);

@@ -45,7 +45,8 @@ impl ForgeState {
         let path = Self::path();
         if let Some(parent) = path.parent() { std::fs::create_dir_all(parent)?; }
         std::fs::write(&path, serde_yaml::to_string(self)?)?;
-        Ok(())
+        #[cfg(unix)]
+        { use std::os::unix::fs::PermissionsExt; std::fs::set_permissions(&path, std::fs::Permissions::from_mode(0o600))?; }        Ok(())
     }
 
     pub fn find_by_manifest(&self, manifest_path: &str) -> Option<&ManagedApp> {

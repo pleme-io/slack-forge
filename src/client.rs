@@ -66,18 +66,6 @@ impl SlackClient {
         }
     }
 
-    /// Load token from file path (trims whitespace/newlines).
-    pub fn from_file(path: &str) -> Result<Self> {
-        let expanded = shellexpand::tilde(path).to_string();
-        let token = std::fs::read_to_string(&expanded)
-            .with_context(|| format!("failed to read token from {expanded}"))?
-            .trim()
-            .to_string();
-        if token.is_empty() {
-            bail!("token file {expanded} is empty");
-        }
-        Ok(Self::new(&token))
-    }
 
     async fn post<T: serde::de::DeserializeOwned>(
         &self,
