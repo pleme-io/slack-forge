@@ -1,11 +1,12 @@
 use anyhow::{Context, Result, bail};
 use serde::{Deserialize, Serialize};
+use todoku::{BearerToken, HttpClient, RetryPolicy};
 
-/// Slack Manifest API client.
-/// Uses a Configuration Token (xoxe.xoxp-...) for all operations.
+const SLACK_API_BASE: &str = "https://slack.com/api";
+
+/// Slack Manifest API client, backed by todoku `HttpClient`.
 pub struct SlackClient {
-    token: String,
-    http: reqwest::Client,
+    http: HttpClient,
 }
 
 #[derive(Debug, Deserialize)]
@@ -59,38 +60,32 @@ pub struct AppListEntry {
 }
 
 impl SlackClient {
-    pub fn new(token: &str) -> Self {
-        Self {
-            token: token.to_string(),
-            http: reqwest::Client::new(),
-        }
+    /// Build a new `SlackClient` using todoku with bearer token auth and default retry.
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if the underlying HTTP client fails to build.
+    pub fn new(token: &str) -> Result<Self> {
+        let http = HttpClient::builder()
+            .base_url(SLACK_API_BASE)
+            .auth(BearerToken::new(token))
+            .retry(RetryPolicy::default())
+            .build()
+            .map_err(|e| anyhow::anyhow!("failed to build HTTP client: {e}"))?;
+        Ok(Self { http })
     }
 
-
+    /// POST to a Slack API endpoint, deserialize and check the `ok` envelope.
     async fn post<T: serde::de::DeserializeOwned>(
         &self,
         endpoint: &str,
         body: &serde_json::Value,
     ) -> Result<T> {
-        let url = format!("https://slack.com/api/{endpoint}");
-        let resp = self
+        let parsed: SlackResponse<T> = self
             .http
-            .post(&url)
-            .bearer_auth(&self.token)
-            .json(body)
-            .send()
+            .post(endpoint, body)
             .await
-            .with_context(|| format!("request to {endpoint} failed"))?;
-
-        let status = resp.status();
-        let text = resp.text().await?;
-
-        if !status.is_success() {
-            bail!("{endpoint} returned HTTP {status}: {text}");
-        }
-
-        let parsed: SlackResponse<T> =
-            serde_json::from_str(&text).with_context(|| format!("failed to parse {endpoint} response"))?;
+            .map_err(|e| anyhow::anyhow!("{endpoint}: {e}"))?;
 
         if !parsed.ok {
             bail!(
@@ -136,19 +131,15 @@ impl SlackClient {
     /// Returns errors list (empty = valid). Does NOT bail on ok=false since
     /// the validate endpoint returns ok=false when there are validation errors.
     pub async fn manifest_validate(&self, manifest: &serde_json::Value) -> Result<Vec<ManifestError>> {
-        let url = "https://slack.com/api/apps.manifest.validate";
         let body = serde_json::json!({ "manifest": Self::manifest_string(manifest) });
-        let resp = self
-            .http
-            .post(url)
-            .bearer_auth(&self.token)
-            .json(&body)
-            .send()
-            .await
-            .context("validate request failed")?;
 
-        let text = resp.text().await?;
-        let parsed: serde_json::Value = serde_json::from_str(&text)?;
+        // Validate is special: Slack returns ok=false with errors, so we deserialize
+        // the raw response and inspect it ourselves rather than using self.post().
+        let parsed: serde_json::Value = self
+            .http
+            .post("apps.manifest.validate", &body)
+            .await
+            .map_err(|e| anyhow::anyhow!("validate request failed: {e}"))?;
 
         // Extract errors regardless of ok status
         if let Some(errors) = parsed.get("errors") {

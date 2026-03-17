@@ -76,7 +76,7 @@ fn extract_name(m: &serde_json::Value) -> String {
 
 async fn cmd_apply(token: Option<&str>, manifest_path: Option<&str>) -> Result<()> {
     let token = config::resolve_token(token)?;
-    let client = client::SlackClient::new(&token);
+    let client = client::SlackClient::new(&token)?;
     let path = manifest::resolve_manifest_path(manifest_path)?;
     let desired = manifest::load_manifest(&path)?;
 
@@ -191,7 +191,7 @@ async fn cmd_install(_token: Option<&str>, manifest_path: Option<&str>, explicit
 
 async fn cmd_diff(token: Option<&str>, manifest_path: Option<&str>) -> Result<()> {
     let token = config::resolve_token(token)?;
-    let client = client::SlackClient::new(&token);
+    let client = client::SlackClient::new(&token)?;
     let path = manifest::resolve_manifest_path(manifest_path)?;
     let desired = manifest::load_manifest(&path)?;
     let state = config::ForgeState::load()?;
@@ -208,7 +208,7 @@ async fn cmd_diff(token: Option<&str>, manifest_path: Option<&str>) -> Result<()
 
 async fn cmd_export(token: Option<&str>, app_id: &str) -> Result<()> {
     let token = config::resolve_token(token)?;
-    let client = client::SlackClient::new(&token);
+    let client = client::SlackClient::new(&token)?;
     let manifest = client.manifest_export(app_id).await?;
     print!("{}", serde_yaml::to_string(&manifest)?);
     Ok(())
@@ -216,7 +216,7 @@ async fn cmd_export(token: Option<&str>, app_id: &str) -> Result<()> {
 
 async fn cmd_validate(token: Option<&str>, manifest_path: Option<&str>) -> Result<()> {
     let token = config::resolve_token(token)?;
-    let client = client::SlackClient::new(&token);
+    let client = client::SlackClient::new(&token)?;
     let path = manifest::resolve_manifest_path(manifest_path)?;
     let desired = manifest::load_manifest(&path)?;
     let errors = client.manifest_validate(&desired).await?;
@@ -235,7 +235,7 @@ async fn cmd_validate(token: Option<&str>, manifest_path: Option<&str>) -> Resul
 
 async fn cmd_delete(token: Option<&str>, app_id: &str) -> Result<()> {
     let token = config::resolve_token(token)?;
-    let client = client::SlackClient::new(&token);
+    let client = client::SlackClient::new(&token)?;
     println!("{} {}", "Deleting".red(), app_id);
     client.manifest_delete(app_id).await?;
     println!("{} App {} deleted.", "\u{2713}".green(), app_id);
