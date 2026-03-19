@@ -210,7 +210,7 @@ async fn cmd_export(token: Option<&str>, app_id: &str) -> Result<()> {
     let token = config::resolve_token(token)?;
     let client = client::SlackClient::new(&token)?;
     let manifest = client.manifest_export(app_id).await?;
-    print!("{}", serde_yaml::to_string(&manifest)?);
+    print!("{}", serde_yaml_ng::to_string(&manifest)?);
     Ok(())
 }
 

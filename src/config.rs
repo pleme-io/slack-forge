@@ -37,14 +37,14 @@ impl ForgeState {
         if !path.exists() { return Ok(Self::default()); }
         let content = std::fs::read_to_string(&path)
             .with_context(|| format!("failed to read {}", path.display()))?;
-        serde_yaml::from_str(&content)
+        serde_yaml_ng::from_str(&content)
             .with_context(|| format!("invalid state file {}", path.display()))
     }
 
     pub fn save(&self) -> Result<()> {
         let path = Self::path();
         if let Some(parent) = path.parent() { std::fs::create_dir_all(parent)?; }
-        std::fs::write(&path, serde_yaml::to_string(self)?)?;
+        std::fs::write(&path, serde_yaml_ng::to_string(self)?)?;
         #[cfg(unix)]
         { use std::os::unix::fs::PermissionsExt; std::fs::set_permissions(&path, std::fs::Permissions::from_mode(0o600))?; }        Ok(())
     }

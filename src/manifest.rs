@@ -8,7 +8,7 @@ pub fn load_manifest(path: &str) -> Result<serde_json::Value> {
     let content = std::fs::read_to_string(&expanded)
         .with_context(|| format!("failed to read manifest from {expanded}"))?;
     let value: serde_json::Value =
-        serde_yaml::from_str(&content).with_context(|| format!("invalid YAML in {expanded}"))?;
+        serde_yaml_ng::from_str(&content).with_context(|| format!("invalid YAML in {expanded}"))?;
     Ok(value)
 }
 
@@ -33,8 +33,8 @@ pub fn resolve_manifest_path(explicit: Option<&str>) -> Result<String> {
 
 /// Pretty-print a unified diff between two JSON values.
 pub fn diff_manifests(current: &serde_json::Value, desired: &serde_json::Value) -> String {
-    let current_yaml = serde_yaml::to_string(current).unwrap_or_default();
-    let desired_yaml = serde_yaml::to_string(desired).unwrap_or_default();
+    let current_yaml = serde_yaml_ng::to_string(current).unwrap_or_default();
+    let desired_yaml = serde_yaml_ng::to_string(desired).unwrap_or_default();
 
     let diff = TextDiff::from_lines(&current_yaml, &desired_yaml);
     let mut output = String::new();
