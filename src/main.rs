@@ -13,7 +13,7 @@ struct Cli {
     #[command(subcommand)]
     command: Command,
 
-    /// Configuration token (xoxe.xoxp-...). Also reads `SLACK_CONFIG_TOKEN` env or ~/.config/slack-forge/config-token
+    /// Configuration token (`xoxe.xoxp-...`). Also reads `SLACK_CONFIG_TOKEN` env or `~/.config/slack-forge/config-token`
     #[arg(long, global = true)]
     token: Option<String>,
 }
@@ -72,6 +72,34 @@ async fn main() -> Result<()> {
 
 fn extract_name(m: &serde_json::Value) -> String {
     m["display_information"]["name"].as_str().unwrap_or("unnamed").to_string()
+}
+
+/// Print validation errors to stderr and bail if non-empty.
+fn check_validation_errors(errors: &[client::ManifestError], label: &str) -> Result<()> {
+    if errors.is_empty() {
+        return Ok(());
+    }
+    eprintln!("{}", label.red());
+    for err in errors {
+        eprintln!("  {} {err}", "\u{2717}".red());
+    }
+    anyhow::bail!("{} validation error(s)", errors.len());
+}
+
+/// Extract comma-separated OAuth scopes from a manifest JSON pointer.
+fn extract_scopes(manifest: &serde_json::Value, pointer: &str) -> String {
+    manifest
+        .pointer(pointer)
+        .and_then(serde_json::Value::as_array)
+        .map(|a| a.iter().filter_map(serde_json::Value::as_str).collect::<Vec<_>>().join(","))
+        .unwrap_or_default()
+}
+
+/// Redact a token for display: show `prefix_len` chars + "..." + last `suffix_len` chars.
+fn redact_token(token: &str, prefix_len: usize, suffix_len: usize) -> String {
+    let prefix = &token[..std::cmp::min(prefix_len, token.len())];
+    let suffix = &token[token.len().saturating_sub(suffix_len)..];
+    format!("{prefix}...{suffix}")
 }
 
 #[cfg(test)]
@@ -173,6 +201,49 @@ mod tests {
         let manifest = json!({"display_information": {"name": long_name}});
         assert_eq!(extract_name(&manifest), long_name);
     }
+
+    #[test]
+    fn extract_scopes_bot() {
+        let m = json!({"oauth_config": {"scopes": {"bot": ["channels:read", "chat:write"]}}});
+        assert_eq!(extract_scopes(&m, "/oauth_config/scopes/bot"), "channels:read,chat:write");
+    }
+
+    #[test]
+    fn extract_scopes_empty() {
+        assert_eq!(extract_scopes(&json!({}), "/oauth_config/scopes/bot"), "");
+    }
+
+    #[test]
+    fn extract_scopes_empty_array() {
+        let m = json!({"oauth_config": {"scopes": {"user": []}}});
+        assert_eq!(extract_scopes(&m, "/oauth_config/scopes/user"), "");
+    }
+
+    #[test]
+    fn redact_token_normal() {
+        assert_eq!(redact_token("xoxb-1234567890-abcdef", 10, 4), "xoxb-12345...cdef");
+    }
+
+    #[test]
+    fn redact_token_short() {
+        assert_eq!(redact_token("abc", 10, 4), "abc...abc");
+    }
+
+    #[test]
+    fn redact_token_empty() {
+        assert_eq!(redact_token("", 10, 4), "...");
+    }
+
+    #[test]
+    fn check_validation_errors_empty_is_ok() {
+        assert!(check_validation_errors(&[], "label").is_ok());
+    }
+
+    #[test]
+    fn check_validation_errors_non_empty_bails() {
+        let errors = vec![client::ManifestError { message: "bad".into(), pointer: None }];
+        assert!(check_validation_errors(&errors, "label").is_err());
+    }
 }
 
 async fn cmd_apply(token: Option<&str>, manifest_path: Option<&str>) -> Result<()> {
@@ -182,14 +253,7 @@ async fn cmd_apply(token: Option<&str>, manifest_path: Option<&str>) -> Result<(
     let desired = manifest::load_manifest(&path)?;
 
     let errors = client.manifest_validate(&desired).await?;
-    if !errors.is_empty() {
-        eprintln!("{}", "Manifest validation failed:".red());
-        for err in &errors {
-            eprintln!("  {} {}", "\u{2717}".red(), err.message);
-            if let Some(ref ptr) = err.pointer { eprintln!("    at {ptr}"); }
-        }
-        anyhow::bail!("{} validation error(s)", errors.len());
-    }
+    check_validation_errors(&errors, "Manifest validation failed:")?;
 
     let mut state = config::ForgeState::load()?;
 
@@ -248,35 +312,22 @@ async fn cmd_install(_token: Option<&str>, manifest_path: Option<&str>, explicit
     let m_path = manifest::resolve_manifest_path(Some(&app.manifest_path)).unwrap_or_else(|_| app.manifest_path.clone());
     let manifest = manifest::load_manifest(&m_path)?;
 
-    let bot_scopes = manifest.pointer("/oauth_config/scopes/bot")
-        .and_then(|v| v.as_array())
-        .map(|a| a.iter().filter_map(|s| s.as_str()).collect::<Vec<_>>().join(","))
-        .unwrap_or_default();
-    let user_scopes = manifest.pointer("/oauth_config/scopes/user")
-        .and_then(|v| v.as_array())
-        .map(|a| a.iter().filter_map(|s| s.as_str()).collect::<Vec<_>>().join(","))
-        .unwrap_or_default();
+    let bot_scopes = extract_scopes(&manifest, "/oauth_config/scopes/bot");
+    let user_scopes = extract_scopes(&manifest, "/oauth_config/scopes/user");
 
     println!("{} {} ({})", "Installing".cyan(), app.name, app.app_id);
     let result = oauth::run_install(client_id, client_secret, &bot_scopes, &user_scopes).await?;
 
     println!("\n{} Installed to {} ({})", "\u{2713}".green(), result.team_name.bold(), result.team_id);
-    let bt = &result.bot_token;
-    println!("  Bot Token:  {}...{}", &bt[..std::cmp::min(15, bt.len())], &bt[bt.len().saturating_sub(6)..]);
+    println!("  Bot Token:  {}", redact_token(&result.bot_token, 15, 6));
     println!("  Team ID:    {}", result.team_id);
     println!("  Bot User:   {}", result.bot_user_id);
     if let Some(ref ut) = result.user_token {
-        println!("  User Token: {}...{}", &ut[..std::cmp::min(15, ut.len())], &ut[ut.len().saturating_sub(6)..]);
+        println!("  User Token: {}", redact_token(ut, 15, 6));
     }
 
-    // Write bot token to file for easy sops import
-    let state_path = config::ForgeState::path();
-    let token_path = state_path.parent()
-        .ok_or_else(|| anyhow::anyhow!("state path has no parent directory"))?
-        .join("bot-token");
-    std::fs::write(&token_path, &result.bot_token)?;
-    #[cfg(unix)]
-    { use std::os::unix::fs::PermissionsExt; std::fs::set_permissions(&token_path, std::fs::Permissions::from_mode(0o600))?; }
+    let token_path = config::forge_config_dir().join("bot-token");
+    config::write_secure(&token_path, &result.bot_token)?;
     println!("\n  Bot token written to: {}", token_path.display());
     println!("  Import to sops: sops --set '[\"slack\"][\"akeyless\"][\"bot-token\"] \"{}\"' secrets.yaml", result.bot_token);
 
@@ -327,12 +378,7 @@ async fn cmd_validate(token: Option<&str>, manifest_path: Option<&str>) -> Resul
     if errors.is_empty() {
         println!("{} Manifest is valid.", "\u{2713}".green());
     } else {
-        eprintln!("{}", "Validation errors:".red());
-        for err in &errors {
-            eprintln!("  {} {}", "\u{2717}".red(), err.message);
-            if let Some(ref ptr) = err.pointer { eprintln!("    at {ptr}"); }
-        }
-        anyhow::bail!("{} error(s)", errors.len());
+        check_validation_errors(&errors, "Validation errors:")?;
     }
     Ok(())
 }
@@ -359,11 +405,8 @@ fn cmd_status() -> Result<()> {
         println!("{} {} ({})", "App".bold(), app.name.bold(), app.app_id);
         println!("  Manifest:   {}", app.manifest_path);
         println!("  Team:       {}", app.team_id.as_deref().unwrap_or("not installed"));
-        println!("  Bot Token:  {}", app.bot_token.as_ref()
-            .map_or_else(
-                || "none (run 'install')".into(),
-                |t| format!("{}...{}", &t[..std::cmp::min(10, t.len())], &t[t.len().saturating_sub(4)..]),
-            ));
+        println!("  Bot Token:  {}", app.bot_token.as_deref()
+            .map_or_else(|| "none (run 'install')".into(), |t| redact_token(t, 10, 4)));
         println!("  Updated:    {}", app.last_updated.as_deref().unwrap_or("never"));
         println!();
     }

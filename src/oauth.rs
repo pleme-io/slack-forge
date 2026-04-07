@@ -29,6 +29,7 @@ struct AuthedUser {
 
 /// The result of a successful OAuth install flow.
 #[derive(Debug)]
+#[non_exhaustive]
 pub struct InstallResult {
     /// The bot-scoped OAuth token (`xoxb-...`).
     pub bot_token: String,
@@ -40,6 +41,23 @@ pub struct InstallResult {
     pub team_name: String,
     /// The bot user ID created for this app.
     pub bot_user_id: String,
+}
+
+impl TryFrom<OAuthResponse> for InstallResult {
+    type Error = anyhow::Error;
+
+    fn try_from(oauth: OAuthResponse) -> Result<Self> {
+        if !oauth.ok {
+            bail!("OAuth failed: {}", oauth.error.unwrap_or_else(|| "unknown".into()));
+        }
+        Ok(Self {
+            bot_token: oauth.access_token.context("no bot token in OAuth response")?,
+            team_id: oauth.team.as_ref().and_then(|t| t.id.clone()).context("no team ID")?,
+            team_name: oauth.team.and_then(|t| t.name).unwrap_or_else(|| "unknown".into()),
+            bot_user_id: oauth.bot_user_id.unwrap_or_default(),
+            user_token: oauth.authed_user.and_then(|u| u.access_token),
+        })
+    }
 }
 
 /// Run the OAuth install flow:
@@ -108,40 +126,26 @@ pub async fn run_install(client_id: &str, client_secret: &str, scopes: &str, use
     let oauth: OAuthResponse = serde_json::from_str(&text)
         .with_context(|| format!("failed to parse oauth response: {text}"))?;
 
-    if !oauth.ok {
-        bail!("OAuth failed: {}", oauth.error.unwrap_or_else(|| "unknown".into()));
-    }
-
-    let bot_token = oauth.access_token.context("no bot token in OAuth response")?;
-    let team = oauth.team.context("no team info in OAuth response")?;
-    let team_id = team.id.context("no team ID")?;
-    let team_name = team.name.unwrap_or_else(|| "unknown".into());
-    let bot_user_id = oauth.bot_user_id.unwrap_or_default();
-    let user_token = oauth.authed_user.and_then(|u| u.access_token);
-
-    Ok(InstallResult {
-        bot_token,
-        user_token,
-        team_id,
-        team_name,
-        bot_user_id,
-    })
+    InstallResult::try_from(oauth)
 }
 
 fn extract_code(request: &str) -> Result<String> {
-    // Parse "GET /callback?code=XXXXX&state=... HTTP/1.1"
-    let first_line = request.lines().next().unwrap_or("");
-    let path = first_line.split_whitespace().nth(1).unwrap_or("");
+    let path = request
+        .lines()
+        .next()
+        .and_then(|line| line.split_whitespace().nth(1))
+        .unwrap_or("");
 
-    if let Some(query) = path.split('?').nth(1) {
-        for pair in query.split('&') {
-            if let Some(value) = pair.strip_prefix("code=") {
-                return Ok(value.to_string());
-            }
-        }
+    if let Some(code) = path
+        .split('?')
+        .nth(1)
+        .into_iter()
+        .flat_map(|q| q.split('&'))
+        .find_map(|pair| pair.strip_prefix("code="))
+    {
+        return Ok(code.to_string());
     }
 
-    // Check for error
     if path.contains("error=") {
         bail!("OAuth denied by user");
     }
@@ -310,6 +314,52 @@ mod tests {
         assert!(resp.team.is_none());
         assert!(resp.bot_user_id.is_none());
         assert!(resp.authed_user.is_none());
+    }
+
+    #[test]
+    fn install_result_try_from_success() {
+        let oauth = OAuthResponse {
+            ok: true,
+            error: None,
+            access_token: Some("xoxb-bot".into()),
+            team: Some(TeamInfo { id: Some("T1".into()), name: Some("Team".into()) }),
+            bot_user_id: Some("U1".into()),
+            authed_user: Some(AuthedUser { access_token: Some("xoxp-user".into()) }),
+        };
+        let result = InstallResult::try_from(oauth).unwrap();
+        assert_eq!(result.bot_token, "xoxb-bot");
+        assert_eq!(result.team_id, "T1");
+        assert_eq!(result.team_name, "Team");
+        assert_eq!(result.bot_user_id, "U1");
+        assert_eq!(result.user_token.as_deref(), Some("xoxp-user"));
+    }
+
+    #[test]
+    fn install_result_try_from_error() {
+        let oauth = OAuthResponse {
+            ok: false,
+            error: Some("invalid_code".into()),
+            access_token: None,
+            team: None,
+            bot_user_id: None,
+            authed_user: None,
+        };
+        let err = InstallResult::try_from(oauth).unwrap_err();
+        assert!(err.to_string().contains("OAuth failed"));
+    }
+
+    #[test]
+    fn install_result_try_from_missing_token() {
+        let oauth = OAuthResponse {
+            ok: true,
+            error: None,
+            access_token: None,
+            team: Some(TeamInfo { id: Some("T1".into()), name: None }),
+            bot_user_id: None,
+            authed_user: None,
+        };
+        let err = InstallResult::try_from(oauth).unwrap_err();
+        assert!(err.to_string().contains("bot token"));
     }
 
     #[test]

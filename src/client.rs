@@ -4,6 +4,23 @@ use todoku::{BearerToken, HttpClient, RetryPolicy};
 
 const SLACK_API_BASE: &str = "https://slack.com/api";
 
+/// Errors specific to the Slack API client.
+#[derive(Debug, thiserror::Error)]
+#[non_exhaustive]
+pub enum SlackApiError {
+    #[error("failed to build HTTP client: {0}")]
+    ClientBuild(String),
+
+    #[error("{endpoint}: {message}")]
+    ApiError {
+        endpoint: String,
+        message: String,
+    },
+
+    #[error("{endpoint} returned ok=true but no data")]
+    MissingData { endpoint: String },
+}
+
 /// Slack Manifest API client, backed by todoku `HttpClient`.
 pub struct SlackClient {
     http: HttpClient,
@@ -24,7 +41,8 @@ struct AppData {
 }
 
 /// Credentials returned when creating a new Slack app via the Manifest API.
-#[derive(Debug, Deserialize, Serialize)]
+#[derive(Debug, Default, Deserialize, Serialize)]
+#[non_exhaustive]
 pub struct AppCredentials {
     /// The app's OAuth client ID.
     pub client_id: Option<String>,
@@ -43,6 +61,7 @@ struct ManifestData {
 
 /// A single validation error returned by the Slack manifest validate endpoint.
 #[derive(Debug, Deserialize, Serialize)]
+#[non_exhaustive]
 pub struct ManifestError {
     /// Human-readable error description.
     pub message: String,
@@ -50,8 +69,19 @@ pub struct ManifestError {
     pub pointer: Option<String>,
 }
 
+impl std::fmt::Display for ManifestError {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "{}", self.message)?;
+        if let Some(ref ptr) = self.pointer {
+            write!(f, " (at {ptr})")?;
+        }
+        Ok(())
+    }
+}
+
 /// An entry in the list of apps returned by the Slack API.
 #[derive(Debug, Deserialize, Serialize, Clone)]
+#[non_exhaustive]
 pub struct AppListEntry {
     /// The Slack app ID.
     pub app_id: String,
@@ -67,13 +97,13 @@ impl SlackClient {
     /// # Errors
     ///
     /// Returns an error if the underlying HTTP client fails to build.
-    pub fn new(token: &str) -> Result<Self> {
+    pub fn new(token: &str) -> Result<Self, SlackApiError> {
         let http = HttpClient::builder()
             .base_url(SLACK_API_BASE)
             .auth(BearerToken::new(token))
             .retry(RetryPolicy::default())
             .build()
-            .map_err(|e| anyhow::anyhow!("failed to build HTTP client: {e}"))?;
+            .map_err(|e| SlackApiError::ClientBuild(e.to_string()))?;
         Ok(Self { http })
     }
 
@@ -87,28 +117,35 @@ impl SlackClient {
             .http
             .post(endpoint, body)
             .await
-            .map_err(|e| anyhow::anyhow!("{endpoint}: {e}"))?;
+            .map_err(|e| SlackApiError::ApiError {
+                endpoint: endpoint.to_string(),
+                message: e.to_string(),
+            })?;
 
         if !parsed.ok {
-            bail!(
-                "{endpoint}: {}",
-                parsed.error.unwrap_or_else(|| "unknown error".into())
-            );
+            return Err(SlackApiError::ApiError {
+                endpoint: endpoint.to_string(),
+                message: parsed.error.unwrap_or_else(|| "unknown error".into()),
+            }
+            .into());
         }
 
-        parsed
-            .data
-            .with_context(|| format!("{endpoint} returned ok=true but no data"))
+        parsed.data.ok_or_else(|| {
+            SlackApiError::MissingData {
+                endpoint: endpoint.to_string(),
+            }
+            .into()
+        })
     }
 
     /// Stringify manifest for the API (Slack expects manifest as a JSON string, not nested object).
-    fn manifest_string(manifest: &serde_json::Value) -> String {
-        serde_json::to_string(manifest).unwrap_or_default()
+    fn manifest_string(manifest: &serde_json::Value) -> Result<String> {
+        serde_json::to_string(manifest).map_err(|e| anyhow::anyhow!("failed to serialize manifest: {e}"))
     }
 
     /// Create a new Slack app from a manifest.
     pub async fn manifest_create(&self, manifest: &serde_json::Value) -> Result<(String, AppCredentials)> {
-        let body = serde_json::json!({ "manifest": Self::manifest_string(manifest) });
+        let body = serde_json::json!({ "manifest": Self::manifest_string(manifest)? });
         let data: AppData = self.post("apps.manifest.create", &body).await?;
         let app_id = data.app_id.context("no app_id in response")?;
         let creds = data.credentials.context("no credentials in response")?;
@@ -117,7 +154,7 @@ impl SlackClient {
 
     /// Update an existing Slack app's manifest.
     pub async fn manifest_update(&self, app_id: &str, manifest: &serde_json::Value) -> Result<()> {
-        let body = serde_json::json!({ "app_id": app_id, "manifest": Self::manifest_string(manifest) });
+        let body = serde_json::json!({ "app_id": app_id, "manifest": Self::manifest_string(manifest)? });
         let _: serde_json::Value = self.post("apps.manifest.update", &body).await?;
         Ok(())
     }
@@ -133,7 +170,7 @@ impl SlackClient {
     /// Returns errors list (empty = valid). Does NOT bail on ok=false since
     /// the validate endpoint returns ok=false when there are validation errors.
     pub async fn manifest_validate(&self, manifest: &serde_json::Value) -> Result<Vec<ManifestError>> {
-        let body = serde_json::json!({ "manifest": Self::manifest_string(manifest) });
+        let body = serde_json::json!({ "manifest": Self::manifest_string(manifest)? });
 
         // Validate is special: Slack returns ok=false with errors, so we deserialize
         // the raw response and inspect it ourselves rather than using self.post().
@@ -180,14 +217,14 @@ mod tests {
     #[test]
     fn manifest_string_produces_valid_json() {
         let manifest = json!({"display_information": {"name": "test"}});
-        let s = SlackClient::manifest_string(&manifest);
+        let s = SlackClient::manifest_string(&manifest).unwrap();
         let parsed: serde_json::Value = serde_json::from_str(&s).unwrap();
         assert_eq!(parsed["display_information"]["name"], "test");
     }
 
     #[test]
     fn manifest_string_empty_object() {
-        let s = SlackClient::manifest_string(&json!({}));
+        let s = SlackClient::manifest_string(&json!({})).unwrap();
         assert_eq!(s, "{}");
     }
 
@@ -207,7 +244,7 @@ mod tests {
                 }
             }
         });
-        let s = SlackClient::manifest_string(&manifest);
+        let s = SlackClient::manifest_string(&manifest).unwrap();
         let parsed: serde_json::Value = serde_json::from_str(&s).unwrap();
         assert_eq!(parsed["oauth_config"]["scopes"]["bot"][0], "channels:read");
         assert!(parsed["features"]["bot_user"]["always_online"].as_bool().unwrap());
@@ -216,7 +253,7 @@ mod tests {
     #[test]
     fn manifest_string_preserves_special_chars() {
         let manifest = json!({"name": "test \"app\" with <special> & chars"});
-        let s = SlackClient::manifest_string(&manifest);
+        let s = SlackClient::manifest_string(&manifest).unwrap();
         let parsed: serde_json::Value = serde_json::from_str(&s).unwrap();
         assert_eq!(parsed["name"], "test \"app\" with <special> & chars");
     }
@@ -224,7 +261,7 @@ mod tests {
     #[test]
     fn manifest_string_unicode() {
         let manifest = json!({"name": "日本語アプリ"});
-        let s = SlackClient::manifest_string(&manifest);
+        let s = SlackClient::manifest_string(&manifest).unwrap();
         let parsed: serde_json::Value = serde_json::from_str(&s).unwrap();
         assert_eq!(parsed["name"], "日本語アプリ");
     }
@@ -279,6 +316,36 @@ mod tests {
     }
 
     #[test]
+    fn app_credentials_default_all_none() {
+        let creds = AppCredentials::default();
+        assert!(creds.client_id.is_none());
+        assert!(creds.client_secret.is_none());
+        assert!(creds.verification_token.is_none());
+        assert!(creds.signing_secret.is_none());
+    }
+
+    #[test]
+    fn slack_api_error_client_build_display() {
+        let err = SlackApiError::ClientBuild("bad config".into());
+        assert_eq!(err.to_string(), "failed to build HTTP client: bad config");
+    }
+
+    #[test]
+    fn slack_api_error_api_error_display() {
+        let err = SlackApiError::ApiError {
+            endpoint: "test.method".into(),
+            message: "invalid_auth".into(),
+        };
+        assert_eq!(err.to_string(), "test.method: invalid_auth");
+    }
+
+    #[test]
+    fn slack_api_error_missing_data_display() {
+        let err = SlackApiError::MissingData { endpoint: "apps.manifest.export".into() };
+        assert!(err.to_string().contains("ok=true but no data"));
+    }
+
+    #[test]
     fn app_credentials_serialization_roundtrip() {
         let creds = AppCredentials {
             client_id: Some("cid".into()),
@@ -306,6 +373,18 @@ mod tests {
         let err: ManifestError = serde_json::from_str(json_str).unwrap();
         assert_eq!(err.message, "generic error");
         assert!(err.pointer.is_none());
+    }
+
+    #[test]
+    fn manifest_error_display_with_pointer() {
+        let err = ManifestError { message: "invalid scope".into(), pointer: Some("/oauth".into()) };
+        assert_eq!(err.to_string(), "invalid scope (at /oauth)");
+    }
+
+    #[test]
+    fn manifest_error_display_without_pointer() {
+        let err = ManifestError { message: "bad".into(), pointer: None };
+        assert_eq!(err.to_string(), "bad");
     }
 
     #[test]
@@ -416,14 +495,14 @@ mod tests {
 
     #[test]
     fn manifest_string_null_value() {
-        let s = SlackClient::manifest_string(&json!(null));
+        let s = SlackClient::manifest_string(&json!(null)).unwrap();
         assert_eq!(s, "null");
     }
 
     #[test]
     fn manifest_string_array_input() {
         let manifest = json!(["a", "b", "c"]);
-        let s = SlackClient::manifest_string(&manifest);
+        let s = SlackClient::manifest_string(&manifest).unwrap();
         let parsed: serde_json::Value = serde_json::from_str(&s).unwrap();
         assert_eq!(parsed[0], "a");
         assert_eq!(parsed[2], "c");
@@ -432,7 +511,7 @@ mod tests {
     #[test]
     fn manifest_string_deeply_nested() {
         let manifest = json!({"a": {"b": {"c": {"d": {"e": "deep"}}}}});
-        let s = SlackClient::manifest_string(&manifest);
+        let s = SlackClient::manifest_string(&manifest).unwrap();
         let parsed: serde_json::Value = serde_json::from_str(&s).unwrap();
         assert_eq!(parsed["a"]["b"]["c"]["d"]["e"], "deep");
     }
@@ -441,7 +520,7 @@ mod tests {
     fn manifest_string_large_array() {
         let scopes: Vec<String> = (0..50).map(|i| format!("scope:{i}")).collect();
         let manifest = json!({"scopes": scopes});
-        let s = SlackClient::manifest_string(&manifest);
+        let s = SlackClient::manifest_string(&manifest).unwrap();
         let parsed: serde_json::Value = serde_json::from_str(&s).unwrap();
         assert_eq!(parsed["scopes"].as_array().unwrap().len(), 50);
     }

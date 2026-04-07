@@ -90,6 +90,7 @@ pub fn diff_manifests(current: &serde_json::Value, desired: &serde_json::Value) 
 }
 
 /// Check if two manifests are semantically equal (ignoring key order).
+#[must_use]
 pub fn manifests_equal(a: &serde_json::Value, b: &serde_json::Value) -> bool {
     a == b
 }

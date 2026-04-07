@@ -2,8 +2,33 @@ use anyhow::{Context, Result};
 use serde::{Deserialize, Serialize};
 use std::path::PathBuf;
 
+/// Base config directory for slack-forge state and tokens.
+#[must_use]
+pub fn forge_config_dir() -> PathBuf {
+    dirs::config_dir()
+        .unwrap_or_else(|| PathBuf::from("~/.config"))
+        .join("slack-forge")
+}
+
+/// Write `contents` to `path`, creating parent directories as needed and
+/// restricting permissions to owner-only (0o600) on Unix.
+pub fn write_secure(path: impl AsRef<std::path::Path>, contents: impl AsRef<[u8]>) -> Result<()> {
+    let path = path.as_ref();
+    if let Some(parent) = path.parent() {
+        std::fs::create_dir_all(parent)?;
+    }
+    std::fs::write(path, contents)?;
+    #[cfg(unix)]
+    {
+        use std::os::unix::fs::PermissionsExt;
+        std::fs::set_permissions(path, std::fs::Permissions::from_mode(0o600))?;
+    }
+    Ok(())
+}
+
 /// Errors specific to configuration token resolution.
 #[derive(Debug, thiserror::Error)]
+#[non_exhaustive]
 pub enum TokenError {
     /// No token was found in any of the supported locations.
     #[error(
@@ -27,7 +52,7 @@ pub struct ForgeState {
 }
 
 /// A single managed Slack app entry in the forge state file.
-#[derive(Debug, Serialize, Deserialize, Clone)]
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct ManagedApp {
     pub app_id: String,
     pub name: String,
@@ -45,11 +70,9 @@ pub struct ManagedApp {
 
 impl ForgeState {
     /// Returns the path to the state file (`~/.config/slack-forge/state.yaml`).
+    #[must_use]
     pub fn path() -> PathBuf {
-        dirs::config_dir()
-            .unwrap_or_else(|| PathBuf::from("~/.config"))
-            .join("slack-forge")
-            .join("state.yaml")
+        forge_config_dir().join("state.yaml")
     }
 
     /// Load state from disk, returning an empty state if the file does not exist.
@@ -74,20 +97,11 @@ impl ForgeState {
     ///
     /// Returns an error if the directory cannot be created or the file cannot be written.
     pub fn save(&self) -> Result<()> {
-        let path = Self::path();
-        if let Some(parent) = path.parent() {
-            std::fs::create_dir_all(parent)?;
-        }
-        std::fs::write(&path, serde_yaml_ng::to_string(self)?)?;
-        #[cfg(unix)]
-        {
-            use std::os::unix::fs::PermissionsExt;
-            std::fs::set_permissions(&path, std::fs::Permissions::from_mode(0o600))?;
-        }
-        Ok(())
+        write_secure(Self::path(), serde_yaml_ng::to_string(self)?)
     }
 
     /// Look up a managed app by its manifest path.
+    #[must_use]
     pub fn find_by_manifest(&self, manifest_path: &str) -> Option<&ManagedApp> {
         self.apps.iter().find(|a| a.manifest_path == manifest_path)
     }
@@ -120,10 +134,7 @@ pub fn resolve_token(explicit: Option<&str>) -> Result<String, TokenError> {
     {
         return Ok(t);
     }
-    let token_file = dirs::config_dir()
-        .unwrap_or_else(|| PathBuf::from("~/.config"))
-        .join("slack-forge")
-        .join("config-token");
+    let token_file = forge_config_dir().join("config-token");
     if token_file.exists() {
         let t = std::fs::read_to_string(&token_file)
             .map_err(|source| TokenError::ReadFailed {
@@ -343,6 +354,32 @@ mod tests {
         let p2 = ForgeState::path();
         assert_eq!(p1, p2);
         assert!(p1.ends_with("slack-forge/state.yaml"));
+    }
+
+    #[test]
+    fn forge_config_dir_is_parent_of_state_path() {
+        let dir = forge_config_dir();
+        let state = ForgeState::path();
+        assert_eq!(state.parent().unwrap(), dir);
+    }
+
+    #[test]
+    fn write_secure_creates_parent_dirs_and_writes() {
+        let dir = tempfile::tempdir().unwrap();
+        let path = dir.path().join("nested").join("deep").join("file.txt");
+        write_secure(&path, "hello").unwrap();
+        assert_eq!(std::fs::read_to_string(&path).unwrap(), "hello");
+    }
+
+    #[cfg(unix)]
+    #[test]
+    fn write_secure_sets_owner_only_permissions() {
+        use std::os::unix::fs::PermissionsExt;
+        let dir = tempfile::tempdir().unwrap();
+        let path = dir.path().join("secret.txt");
+        write_secure(&path, "secret").unwrap();
+        let mode = std::fs::metadata(&path).unwrap().permissions().mode();
+        assert_eq!(mode & 0o777, 0o600);
     }
 
     #[test]
