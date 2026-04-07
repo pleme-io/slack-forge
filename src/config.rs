@@ -2,12 +2,31 @@ use anyhow::{Context, Result};
 use serde::{Deserialize, Serialize};
 use std::path::PathBuf;
 
+/// Errors specific to configuration token resolution.
+#[derive(Debug, thiserror::Error)]
+pub enum TokenError {
+    /// No token was found in any of the supported locations.
+    #[error(
+        "no configuration token found. Set --token, SLACK_CONFIG_TOKEN, or ~/.config/slack-forge/config-token"
+    )]
+    NotFound,
+
+    /// The token file exists but could not be read.
+    #[error("failed to read token file {path}: {source}")]
+    ReadFailed {
+        path: PathBuf,
+        source: std::io::Error,
+    },
+}
+
+/// Persistent state tracking all managed Slack apps.
 #[derive(Debug, Default, Serialize, Deserialize)]
 pub struct ForgeState {
     #[serde(default)]
     pub apps: Vec<ManagedApp>,
 }
 
+/// A single managed Slack app entry in the forge state file.
 #[derive(Debug, Serialize, Deserialize, Clone)]
 pub struct ManagedApp {
     pub app_id: String,
@@ -25,6 +44,7 @@ pub struct ManagedApp {
 }
 
 impl ForgeState {
+    /// Returns the path to the state file (`~/.config/slack-forge/state.yaml`).
     pub fn path() -> PathBuf {
         dirs::config_dir()
             .unwrap_or_else(|| PathBuf::from("~/.config"))
@@ -32,27 +52,47 @@ impl ForgeState {
             .join("state.yaml")
     }
 
+    /// Load state from disk, returning an empty state if the file does not exist.
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if the file exists but cannot be read or parsed.
     pub fn load() -> Result<Self> {
         let path = Self::path();
-        if !path.exists() { return Ok(Self::default()); }
+        if !path.exists() {
+            return Ok(Self::default());
+        }
         let content = std::fs::read_to_string(&path)
             .with_context(|| format!("failed to read {}", path.display()))?;
         serde_yaml_ng::from_str(&content)
             .with_context(|| format!("invalid state file {}", path.display()))
     }
 
+    /// Persist current state to disk with restricted permissions.
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if the directory cannot be created or the file cannot be written.
     pub fn save(&self) -> Result<()> {
         let path = Self::path();
-        if let Some(parent) = path.parent() { std::fs::create_dir_all(parent)?; }
+        if let Some(parent) = path.parent() {
+            std::fs::create_dir_all(parent)?;
+        }
         std::fs::write(&path, serde_yaml_ng::to_string(self)?)?;
         #[cfg(unix)]
-        { use std::os::unix::fs::PermissionsExt; std::fs::set_permissions(&path, std::fs::Permissions::from_mode(0o600))?; }        Ok(())
+        {
+            use std::os::unix::fs::PermissionsExt;
+            std::fs::set_permissions(&path, std::fs::Permissions::from_mode(0o600))?;
+        }
+        Ok(())
     }
 
+    /// Look up a managed app by its manifest path.
     pub fn find_by_manifest(&self, manifest_path: &str) -> Option<&ManagedApp> {
         self.apps.iter().find(|a| a.manifest_path == manifest_path)
     }
 
+    /// Insert or update a managed app, keyed by `app_id`.
     pub fn upsert(&mut self, app: ManagedApp) {
         if let Some(existing) = self.apps.iter_mut().find(|a| a.app_id == app.app_id) {
             *existing = app;
@@ -62,8 +102,19 @@ impl ForgeState {
     }
 }
 
-pub fn resolve_token(explicit: Option<&str>) -> Result<String> {
-    if let Some(t) = explicit { return Ok(t.to_string()); }
+/// Resolve a Slack configuration token from (in priority order):
+/// 1. Explicit `--token` flag
+/// 2. `SLACK_CONFIG_TOKEN` environment variable
+/// 3. `~/.config/slack-forge/config-token` file
+///
+/// # Errors
+///
+/// Returns [`TokenError::NotFound`] if no token is available, or
+/// [`TokenError::ReadFailed`] if the token file exists but cannot be read.
+pub fn resolve_token(explicit: Option<&str>) -> Result<String, TokenError> {
+    if let Some(t) = explicit {
+        return Ok(t.to_string());
+    }
     if let Ok(t) = std::env::var("SLACK_CONFIG_TOKEN")
         && !t.is_empty()
     {
@@ -71,12 +122,21 @@ pub fn resolve_token(explicit: Option<&str>) -> Result<String> {
     }
     let token_file = dirs::config_dir()
         .unwrap_or_else(|| PathBuf::from("~/.config"))
-        .join("slack-forge").join("config-token");
+        .join("slack-forge")
+        .join("config-token");
     if token_file.exists() {
-        let t = std::fs::read_to_string(&token_file)?.trim().to_string();
-        if !t.is_empty() { return Ok(t); }
+        let t = std::fs::read_to_string(&token_file)
+            .map_err(|source| TokenError::ReadFailed {
+                path: token_file.clone(),
+                source,
+            })?
+            .trim()
+            .to_string();
+        if !t.is_empty() {
+            return Ok(t);
+        }
     }
-    anyhow::bail!("no configuration token found. Set --token, SLACK_CONFIG_TOKEN, or ~/.config/slack-forge/config-token");
+    Err(TokenError::NotFound)
 }
 
 #[cfg(test)]
