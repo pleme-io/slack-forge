@@ -130,6 +130,49 @@ mod tests {
         let manifest = json!({"display_information": {"name": "My App (v2.0) - Test"}});
         assert_eq!(extract_name(&manifest), "My App (v2.0) - Test");
     }
+
+    #[test]
+    fn extract_name_name_is_boolean() {
+        let manifest = json!({"display_information": {"name": true}});
+        assert_eq!(extract_name(&manifest), "unnamed");
+    }
+
+    #[test]
+    fn extract_name_name_is_array() {
+        let manifest = json!({"display_information": {"name": ["a", "b"]}});
+        assert_eq!(extract_name(&manifest), "unnamed");
+    }
+
+    #[test]
+    fn extract_name_name_is_nested_object() {
+        let manifest = json!({"display_information": {"name": {"nested": "value"}}});
+        assert_eq!(extract_name(&manifest), "unnamed");
+    }
+
+    #[test]
+    fn extract_name_display_information_is_not_object() {
+        let manifest = json!({"display_information": "just a string"});
+        assert_eq!(extract_name(&manifest), "unnamed");
+    }
+
+    #[test]
+    fn extract_name_display_information_is_array() {
+        let manifest = json!({"display_information": [1, 2, 3]});
+        assert_eq!(extract_name(&manifest), "unnamed");
+    }
+
+    #[test]
+    fn extract_name_whitespace_name() {
+        let manifest = json!({"display_information": {"name": "  spaces  "}});
+        assert_eq!(extract_name(&manifest), "  spaces  ");
+    }
+
+    #[test]
+    fn extract_name_very_long_name() {
+        let long_name = "A".repeat(500);
+        let manifest = json!({"display_information": {"name": long_name}});
+        assert_eq!(extract_name(&manifest), long_name);
+    }
 }
 
 async fn cmd_apply(token: Option<&str>, manifest_path: Option<&str>) -> Result<()> {

@@ -311,4 +311,96 @@ mod tests {
         assert!(resp.bot_user_id.is_none());
         assert!(resp.authed_user.is_none());
     }
+
+    #[test]
+    fn extract_code_with_special_characters_in_code() {
+        let request = "GET /callback?code=abc-123_456.xyz HTTP/1.1\r\n\r\n";
+        assert_eq!(extract_code(request).unwrap(), "abc-123_456.xyz");
+    }
+
+    #[test]
+    fn extract_code_multiple_question_marks_in_url() {
+        let request = "GET /callback?code=mycode&q=what? HTTP/1.1\r\n\r\n";
+        assert_eq!(extract_code(request).unwrap(), "mycode");
+    }
+
+    #[test]
+    fn extract_code_http_11_format() {
+        let request = "GET /callback?code=http11code HTTP/1.1\r\nHost: localhost:19876\r\nConnection: keep-alive\r\n\r\n";
+        assert_eq!(extract_code(request).unwrap(), "http11code");
+    }
+
+    #[test]
+    fn extract_code_path_with_trailing_slash() {
+        let request = "GET /callback/?code=slashcode HTTP/1.1\r\n\r\n";
+        assert_eq!(extract_code(request).unwrap(), "slashcode");
+    }
+
+    #[test]
+    fn oauth_response_team_name_optional() {
+        let json_str = r#"{"ok": true, "access_token": "xoxb-t", "team": {"id": "T1"}, "bot_user_id": "U1"}"#;
+        let resp: OAuthResponse = serde_json::from_str(json_str).unwrap();
+        let team = resp.team.unwrap();
+        assert_eq!(team.id.as_deref(), Some("T1"));
+        assert!(team.name.is_none());
+    }
+
+    #[test]
+    fn oauth_response_authed_user_no_access_token() {
+        let json_str = r#"{"ok": true, "access_token": "xoxb-t", "authed_user": {}}"#;
+        let resp: OAuthResponse = serde_json::from_str(json_str).unwrap();
+        let user = resp.authed_user.unwrap();
+        assert!(user.access_token.is_none());
+    }
+
+    #[test]
+    fn team_info_deserialization() {
+        let json_str = r#"{"id": "T123ABC", "name": "Test Workspace"}"#;
+        let team: TeamInfo = serde_json::from_str(json_str).unwrap();
+        assert_eq!(team.id.as_deref(), Some("T123ABC"));
+        assert_eq!(team.name.as_deref(), Some("Test Workspace"));
+    }
+
+    #[test]
+    fn team_info_empty() {
+        let json_str = r#"{}"#;
+        let team: TeamInfo = serde_json::from_str(json_str).unwrap();
+        assert!(team.id.is_none());
+        assert!(team.name.is_none());
+    }
+
+    #[test]
+    fn authed_user_deserialization() {
+        let json_str = r#"{"access_token": "xoxp-user-token"}"#;
+        let user: AuthedUser = serde_json::from_str(json_str).unwrap();
+        assert_eq!(user.access_token.as_deref(), Some("xoxp-user-token"));
+    }
+
+    #[test]
+    fn extract_code_very_long_query_string() {
+        let padding = "x".repeat(500);
+        let request = format!("GET /callback?padding={padding}&code=found_it HTTP/1.1\r\n\r\n");
+        assert_eq!(extract_code(&request).unwrap(), "found_it");
+    }
+
+    #[test]
+    fn extract_code_error_before_code_param() {
+        let request = "GET /callback?error=access_denied&code=ignored HTTP/1.1\r\n\r\n";
+        let result = extract_code(request);
+        assert_eq!(result.unwrap(), "ignored");
+    }
+
+    #[test]
+    fn install_result_debug_format() {
+        let result = InstallResult {
+            bot_token: "xoxb-tok".into(),
+            user_token: None,
+            team_id: "T1".into(),
+            team_name: "Team".into(),
+            bot_user_id: "U1".into(),
+        };
+        let debug = format!("{result:?}");
+        assert!(debug.contains("xoxb-tok"));
+        assert!(debug.contains("T1"));
+    }
 }

@@ -142,6 +142,8 @@ pub fn resolve_token(explicit: Option<&str>) -> Result<String, TokenError> {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use assert_matches::assert_matches;
+    use pretty_assertions::assert_eq;
 
     fn make_app(id: &str, manifest: &str) -> ManagedApp {
         ManagedApp {
@@ -351,5 +353,133 @@ mod tests {
         assert!(app.team_id.is_none());
         assert!(app.client_id.is_none());
         assert!(app.bot_token.is_none());
+    }
+
+    #[test]
+    fn resolve_token_no_sources_returns_not_found() {
+        unsafe { std::env::remove_var("SLACK_CONFIG_TOKEN"); }
+        let result = resolve_token(None);
+        assert_matches!(result, Err(TokenError::NotFound));
+    }
+
+    #[test]
+    fn token_error_not_found_display() {
+        let err = TokenError::NotFound;
+        let msg = err.to_string();
+        assert!(msg.contains("no configuration token found"));
+        assert!(msg.contains("--token"));
+        assert!(msg.contains("SLACK_CONFIG_TOKEN"));
+    }
+
+    #[test]
+    fn token_error_read_failed_display() {
+        let err = TokenError::ReadFailed {
+            path: PathBuf::from("/some/token"),
+            source: std::io::Error::new(std::io::ErrorKind::PermissionDenied, "access denied"),
+        };
+        let msg = err.to_string();
+        assert!(msg.contains("/some/token"));
+        assert!(msg.contains("access denied"));
+    }
+
+    #[test]
+    fn upsert_preserves_insertion_order() {
+        let mut state = ForgeState::default();
+        state.upsert(make_app("C", "c.yaml"));
+        state.upsert(make_app("A", "a.yaml"));
+        state.upsert(make_app("B", "b.yaml"));
+        assert_eq!(state.apps[0].app_id, "C");
+        assert_eq!(state.apps[1].app_id, "A");
+        assert_eq!(state.apps[2].app_id, "B");
+    }
+
+    #[test]
+    fn upsert_update_preserves_position() {
+        let mut state = ForgeState::default();
+        state.upsert(make_app("A1", "a.yaml"));
+        state.upsert(make_app("A2", "b.yaml"));
+        state.upsert(make_app("A3", "c.yaml"));
+
+        let mut updated = make_app("A2", "updated.yaml");
+        updated.name = "updated-app".into();
+        state.upsert(updated);
+
+        assert_eq!(state.apps.len(), 3);
+        assert_eq!(state.apps[1].app_id, "A2");
+        assert_eq!(state.apps[1].name, "updated-app");
+        assert_eq!(state.apps[1].manifest_path, "updated.yaml");
+    }
+
+    #[test]
+    fn find_by_manifest_returns_first_match() {
+        let mut state = ForgeState::default();
+        state.apps.push(make_app("A1", "shared.yaml"));
+        state.apps.push(make_app("A2", "shared.yaml"));
+        let found = state.find_by_manifest("shared.yaml").unwrap();
+        assert_eq!(found.app_id, "A1");
+    }
+
+    #[test]
+    fn managed_app_clone_is_independent() {
+        let app = ManagedApp {
+            app_id: "A1".into(),
+            name: "test".into(),
+            manifest_path: "m.yaml".into(),
+            team_id: Some("T1".into()),
+            last_updated: Some("2025-01-01".into()),
+            client_id: Some("cid".into()),
+            client_secret: Some("csec".into()),
+            bot_token: Some("xoxb-tok".into()),
+            user_token: Some("xoxp-tok".into()),
+        };
+        let cloned = app.clone();
+        assert_eq!(cloned.app_id, "A1");
+        assert_eq!(cloned.team_id.as_deref(), Some("T1"));
+        assert_eq!(cloned.bot_token.as_deref(), Some("xoxb-tok"));
+        assert_eq!(cloned.user_token.as_deref(), Some("xoxp-tok"));
+    }
+
+    #[test]
+    fn forge_state_deserialize_empty_apps_list() {
+        let yaml = "apps: []\n";
+        let state: ForgeState = serde_yaml_ng::from_str(yaml).unwrap();
+        assert!(state.apps.is_empty());
+    }
+
+    #[test]
+    fn forge_state_deserialize_missing_apps_field() {
+        let yaml = "{}\n";
+        let state: ForgeState = serde_yaml_ng::from_str(yaml).unwrap();
+        assert!(state.apps.is_empty());
+    }
+
+    #[test]
+    fn managed_app_serialization_includes_required_fields() {
+        let app = make_app("APP1", "path.yaml");
+        let yaml = serde_yaml_ng::to_string(&app).unwrap();
+        assert!(yaml.contains("app_id: APP1"));
+        assert!(yaml.contains("manifest_path: path.yaml"));
+        assert!(yaml.contains("name: app-APP1"));
+    }
+
+    #[test]
+    fn managed_app_with_all_fields_roundtrip() {
+        let app = ManagedApp {
+            app_id: "A1".into(),
+            name: "full-app".into(),
+            manifest_path: "full.yaml".into(),
+            team_id: Some("T1".into()),
+            last_updated: Some("2025-06-15T10:30:00+00:00".into()),
+            client_id: Some("123.456".into()),
+            client_secret: Some("secret-value".into()),
+            bot_token: Some("xoxb-123-456-abc".into()),
+            user_token: Some("xoxp-789-012-def".into()),
+        };
+        let yaml = serde_yaml_ng::to_string(&app).unwrap();
+        let back: ManagedApp = serde_yaml_ng::from_str(&yaml).unwrap();
+        assert_eq!(back.app_id, "A1");
+        assert_eq!(back.client_secret.as_deref(), Some("secret-value"));
+        assert_eq!(back.bot_token.as_deref(), Some("xoxb-123-456-abc"));
+        assert_eq!(back.user_token.as_deref(), Some("xoxp-789-012-def"));
     }
 }

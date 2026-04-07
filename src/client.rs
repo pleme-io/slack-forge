@@ -404,4 +404,135 @@ mod tests {
         let data = resp.data.unwrap();
         assert!(data.manifest.is_some());
     }
+
+    #[test]
+    fn slack_response_ok_true_with_error_field_ignored() {
+        let json_str = r#"{"ok": true, "error": "should_not_matter", "app_id": "A1"}"#;
+        let resp: SlackResponse<AppData> = serde_json::from_str(json_str).unwrap();
+        assert!(resp.ok);
+        assert_eq!(resp.error.as_deref(), Some("should_not_matter"));
+        assert!(resp.data.is_some());
+    }
+
+    #[test]
+    fn manifest_string_null_value() {
+        let s = SlackClient::manifest_string(&json!(null));
+        assert_eq!(s, "null");
+    }
+
+    #[test]
+    fn manifest_string_array_input() {
+        let manifest = json!(["a", "b", "c"]);
+        let s = SlackClient::manifest_string(&manifest);
+        let parsed: serde_json::Value = serde_json::from_str(&s).unwrap();
+        assert_eq!(parsed[0], "a");
+        assert_eq!(parsed[2], "c");
+    }
+
+    #[test]
+    fn manifest_string_deeply_nested() {
+        let manifest = json!({"a": {"b": {"c": {"d": {"e": "deep"}}}}});
+        let s = SlackClient::manifest_string(&manifest);
+        let parsed: serde_json::Value = serde_json::from_str(&s).unwrap();
+        assert_eq!(parsed["a"]["b"]["c"]["d"]["e"], "deep");
+    }
+
+    #[test]
+    fn manifest_string_large_array() {
+        let scopes: Vec<String> = (0..50).map(|i| format!("scope:{i}")).collect();
+        let manifest = json!({"scopes": scopes});
+        let s = SlackClient::manifest_string(&manifest);
+        let parsed: serde_json::Value = serde_json::from_str(&s).unwrap();
+        assert_eq!(parsed["scopes"].as_array().unwrap().len(), 50);
+    }
+
+    #[test]
+    fn slack_response_extra_fields_ignored() {
+        let json_str = r#"{"ok": true, "app_id": "A1", "extra_field": "ignored", "another": 42}"#;
+        let resp: SlackResponse<AppData> = serde_json::from_str(json_str).unwrap();
+        assert!(resp.ok);
+        let data = resp.data.unwrap();
+        assert_eq!(data.app_id.as_deref(), Some("A1"));
+    }
+
+    #[test]
+    fn app_data_deserialization() {
+        let json_str = r#"{"app_id": "A999", "credentials": {"client_id": "cid", "signing_secret": "ss"}}"#;
+        let data: AppData = serde_json::from_str(json_str).unwrap();
+        assert_eq!(data.app_id.as_deref(), Some("A999"));
+        let creds = data.credentials.unwrap();
+        assert_eq!(creds.client_id.as_deref(), Some("cid"));
+        assert_eq!(creds.signing_secret.as_deref(), Some("ss"));
+    }
+
+    #[test]
+    fn app_data_no_credentials() {
+        let json_str = r#"{"app_id": "A111"}"#;
+        let data: AppData = serde_json::from_str(json_str).unwrap();
+        assert_eq!(data.app_id.as_deref(), Some("A111"));
+        assert!(data.credentials.is_none());
+    }
+
+    #[test]
+    fn app_data_no_app_id() {
+        let json_str = r#"{"credentials": {"client_id": "c"}}"#;
+        let data: AppData = serde_json::from_str(json_str).unwrap();
+        assert!(data.app_id.is_none());
+        assert!(data.credentials.is_some());
+    }
+
+    #[test]
+    fn manifest_data_complex_manifest() {
+        let json_str = r#"{"manifest": {"display_information": {"name": "App"}, "features": {"bot_user": {"display_name": "Bot"}}}}"#;
+        let data: ManifestData = serde_json::from_str(json_str).unwrap();
+        let m = data.manifest.unwrap();
+        assert_eq!(m["display_information"]["name"], "App");
+        assert_eq!(m["features"]["bot_user"]["display_name"], "Bot");
+    }
+
+    #[test]
+    fn app_list_entry_serialization_roundtrip() {
+        let entry = AppListEntry {
+            app_id: "A123".into(),
+            app_name: Some("Test App".into()),
+            last_updated: Some(1_700_000_000),
+        };
+        let json = serde_json::to_string(&entry).unwrap();
+        let back: AppListEntry = serde_json::from_str(&json).unwrap();
+        assert_eq!(back.app_id, "A123");
+        assert_eq!(back.app_name.as_deref(), Some("Test App"));
+        assert_eq!(back.last_updated, Some(1_700_000_000));
+    }
+
+    #[test]
+    fn manifest_error_multiple_deserialization() {
+        let json_str = r#"[
+            {"message": "err1", "pointer": "/a"},
+            {"message": "err2"},
+            {"message": "err3", "pointer": "/b/c"}
+        ]"#;
+        let errors: Vec<ManifestError> = serde_json::from_str(json_str).unwrap();
+        assert_eq!(errors.len(), 3);
+        assert_eq!(errors[0].pointer.as_deref(), Some("/a"));
+        assert!(errors[1].pointer.is_none());
+        assert_eq!(errors[2].pointer.as_deref(), Some("/b/c"));
+    }
+
+    #[test]
+    fn slack_response_manifest_data_ok_false_with_errors() {
+        let json_str = r#"{"ok": false, "error": "invalid_manifest", "errors": [{"message": "bad"}]}"#;
+        let resp: SlackResponse<ValidationData> = serde_json::from_str(json_str).unwrap();
+        assert!(!resp.ok);
+        assert_eq!(resp.error.as_deref(), Some("invalid_manifest"));
+    }
+
+    #[test]
+    fn app_credentials_partial_fields() {
+        let json_str = r#"{"client_id": "only-this"}"#;
+        let creds: AppCredentials = serde_json::from_str(json_str).unwrap();
+        assert_eq!(creds.client_id.as_deref(), Some("only-this"));
+        assert!(creds.client_secret.is_none());
+        assert!(creds.verification_token.is_none());
+        assert!(creds.signing_secret.is_none());
+    }
 }

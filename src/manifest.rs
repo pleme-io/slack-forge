@@ -97,7 +97,12 @@ pub fn manifests_equal(a: &serde_json::Value, b: &serde_json::Value) -> bool {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use assert_matches::assert_matches;
+    use pretty_assertions::assert_eq;
     use serde_json::json;
+    use std::sync::Mutex;
+
+    static CWD_LOCK: Mutex<()> = Mutex::new(());
 
     #[test]
     fn load_manifest_reads_yaml_to_json() {
@@ -154,6 +159,7 @@ mod tests {
 
     #[test]
     fn resolve_manifest_path_no_candidates_errors() {
+        let _lock = CWD_LOCK.lock().unwrap();
         let dir = tempfile::tempdir().unwrap();
         let orig = std::env::current_dir().unwrap();
         std::env::set_current_dir(dir.path()).unwrap();
@@ -168,6 +174,7 @@ mod tests {
 
     #[test]
     fn resolve_manifest_path_finds_slack_app_yaml() {
+        let _lock = CWD_LOCK.lock().unwrap();
         let dir = tempfile::tempdir().unwrap();
         std::fs::write(dir.path().join("slack-app.yaml"), "name: test").unwrap();
 
@@ -181,6 +188,7 @@ mod tests {
 
     #[test]
     fn resolve_manifest_path_candidate_priority() {
+        let _lock = CWD_LOCK.lock().unwrap();
         let dir = tempfile::tempdir().unwrap();
         std::fs::write(dir.path().join("slack-app.yaml"), "a: 1").unwrap();
         std::fs::write(dir.path().join("slack-forge.yaml"), "b: 2").unwrap();
@@ -308,5 +316,229 @@ features:
         assert_eq!(bot_scopes.len(), 2);
         assert_eq!(bot_scopes[0], "channels:read");
         assert!(result["features"]["bot_user"]["always_online"].as_bool().unwrap());
+    }
+
+    #[test]
+    fn load_manifest_nonexistent_returns_read_failed_variant() {
+        let result = load_manifest("/tmp/nonexistent-slack-forge-test-12345.yaml");
+        assert_matches!(result, Err(ManifestError::ReadFailed { path, .. }) => {
+            assert_eq!(path, "/tmp/nonexistent-slack-forge-test-12345.yaml");
+        });
+    }
+
+    #[test]
+    fn load_manifest_invalid_yaml_returns_invalid_yaml_variant() {
+        let dir = tempfile::tempdir().unwrap();
+        let path = dir.path().join("bad.yaml");
+        std::fs::write(&path, "{{{{not valid yaml: [}}}").unwrap();
+
+        let result = load_manifest(path.to_str().unwrap());
+        assert_matches!(result, Err(ManifestError::InvalidYaml { .. }));
+    }
+
+    #[test]
+    fn resolve_manifest_path_none_returns_not_found_variant() {
+        let _lock = CWD_LOCK.lock().unwrap();
+        let dir = tempfile::tempdir().unwrap();
+        let orig = std::env::current_dir().unwrap();
+        std::env::set_current_dir(dir.path()).unwrap();
+        let result = resolve_manifest_path(None);
+        std::env::set_current_dir(orig).unwrap();
+
+        assert_matches!(result, Err(ManifestError::NotFound { candidates }) => {
+            assert!(candidates.contains("slack-app.yaml"));
+            assert!(candidates.contains("slack-forge.yaml"));
+            assert!(candidates.contains("manifest.yaml"));
+        });
+    }
+
+    #[test]
+    fn load_manifest_json_as_yaml() {
+        let dir = tempfile::tempdir().unwrap();
+        let path = dir.path().join("json-compat.yaml");
+        std::fs::write(&path, r#"{"name": "from-json", "value": 42}"#).unwrap();
+
+        let result = load_manifest(path.to_str().unwrap()).unwrap();
+        assert_eq!(result["name"], "from-json");
+        assert_eq!(result["value"], 42);
+    }
+
+    #[test]
+    fn load_manifest_multiline_strings() {
+        let dir = tempfile::tempdir().unwrap();
+        let path = dir.path().join("multiline.yaml");
+        std::fs::write(&path, "description: |\n  This is a\n  multiline description\n").unwrap();
+
+        let result = load_manifest(path.to_str().unwrap()).unwrap();
+        let desc = result["description"].as_str().unwrap();
+        assert!(desc.contains("multiline description"));
+    }
+
+    #[test]
+    fn load_manifest_numeric_values_preserved() {
+        let dir = tempfile::tempdir().unwrap();
+        let path = dir.path().join("nums.yaml");
+        std::fs::write(&path, "port: 8080\nretry: 3.5\nenabled: true\n").unwrap();
+
+        let result = load_manifest(path.to_str().unwrap()).unwrap();
+        assert_eq!(result["port"], 8080);
+        assert_eq!(result["retry"], 3.5);
+        assert_eq!(result["enabled"], true);
+    }
+
+    #[test]
+    fn load_manifest_nested_arrays() {
+        let dir = tempfile::tempdir().unwrap();
+        let path = dir.path().join("arrays.yaml");
+        std::fs::write(&path, "scopes:\n  - channels:read\n  - chat:write\n  - users:read\n").unwrap();
+
+        let result = load_manifest(path.to_str().unwrap()).unwrap();
+        let scopes = result["scopes"].as_array().unwrap();
+        assert_eq!(scopes.len(), 3);
+        assert_eq!(scopes[2], "users:read");
+    }
+
+    #[test]
+    fn load_manifest_anchor_and_alias() {
+        let dir = tempfile::tempdir().unwrap();
+        let path = dir.path().join("anchors.yaml");
+        std::fs::write(&path, "defaults: &defaults\n  timeout: 30\nservice:\n  name: my-service\n  ref_defaults: *defaults\n").unwrap();
+
+        let result = load_manifest(path.to_str().unwrap()).unwrap();
+        assert_eq!(result["defaults"]["timeout"], 30);
+        assert_eq!(result["service"]["name"], "my-service");
+        assert_eq!(result["service"]["ref_defaults"]["timeout"], 30);
+    }
+
+    #[test]
+    fn diff_manifests_array_element_change() {
+        let a = json!({"scopes": ["read", "write"]});
+        let b = json!({"scopes": ["read", "admin"]});
+        let output = diff_manifests(&a, &b);
+        assert!(output.contains("write") || output.contains("admin"));
+    }
+
+    #[test]
+    fn diff_manifests_type_change() {
+        let a = json!({"value": "string"});
+        let b = json!({"value": 42});
+        let output = diff_manifests(&a, &b);
+        assert!(output.contains('-') || output.contains('+'));
+    }
+
+    #[test]
+    fn diff_manifests_deeply_nested() {
+        let a = json!({"a": {"b": {"c": {"d": "old"}}}});
+        let b = json!({"a": {"b": {"c": {"d": "new"}}}});
+        let output = diff_manifests(&a, &b);
+        assert!(output.contains("old"));
+        assert!(output.contains("new"));
+    }
+
+    #[test]
+    fn manifests_equal_both_null() {
+        assert!(manifests_equal(&json!(null), &json!(null)));
+    }
+
+    #[test]
+    fn manifests_equal_deeply_nested_identical() {
+        let a = json!({"a": {"b": {"c": [1, 2, {"d": true}]}}});
+        let b = json!({"a": {"b": {"c": [1, 2, {"d": true}]}}});
+        assert!(manifests_equal(&a, &b));
+    }
+
+    #[test]
+    fn manifests_equal_empty_array_vs_missing() {
+        let a = json!({"items": []});
+        let b = json!({});
+        assert!(!manifests_equal(&a, &b));
+    }
+
+    #[test]
+    fn manifest_error_display_read_failed() {
+        let err = ManifestError::ReadFailed {
+            path: "/some/path.yaml".into(),
+            source: std::io::Error::new(std::io::ErrorKind::NotFound, "file not found"),
+        };
+        let msg = err.to_string();
+        assert!(msg.contains("/some/path.yaml"));
+        assert!(msg.contains("failed to read manifest"));
+    }
+
+    #[test]
+    fn manifest_error_display_not_found() {
+        let err = ManifestError::NotFound {
+            candidates: "a.yaml, b.yaml".into(),
+        };
+        let msg = err.to_string();
+        assert!(msg.contains("a.yaml, b.yaml"));
+        assert!(msg.contains("--manifest"));
+    }
+
+    #[test]
+    fn resolve_manifest_path_finds_slack_forge_yaml_when_no_slack_app() {
+        let _lock = CWD_LOCK.lock().unwrap();
+        let dir = tempfile::tempdir().unwrap();
+        std::fs::write(dir.path().join("slack-forge.yaml"), "x: 1").unwrap();
+
+        let orig = std::env::current_dir().unwrap();
+        std::env::set_current_dir(dir.path()).unwrap();
+        let result = resolve_manifest_path(None);
+        std::env::set_current_dir(orig).unwrap();
+
+        assert_eq!(result.unwrap(), "slack-forge.yaml");
+    }
+
+    #[test]
+    fn resolve_manifest_path_finds_manifest_yaml_last_resort() {
+        let _lock = CWD_LOCK.lock().unwrap();
+        let dir = tempfile::tempdir().unwrap();
+        std::fs::write(dir.path().join("manifest.yaml"), "x: 1").unwrap();
+
+        let orig = std::env::current_dir().unwrap();
+        std::env::set_current_dir(dir.path()).unwrap();
+        let result = resolve_manifest_path(None);
+        std::env::set_current_dir(orig).unwrap();
+
+        assert_eq!(result.unwrap(), "manifest.yaml");
+    }
+
+    #[test]
+    fn load_manifest_full_slack_manifest() {
+        let dir = tempfile::tempdir().unwrap();
+        let path = dir.path().join("full.yaml");
+        std::fs::write(&path, r##"
+display_information:
+  name: "Test App"
+  description: "A test application"
+  background_color: "#000000"
+features:
+  bot_user:
+    display_name: "TestBot"
+    always_online: true
+oauth_config:
+  scopes:
+    bot:
+      - channels:history
+      - channels:read
+      - chat:write
+      - groups:history
+      - groups:read
+      - im:history
+      - mpim:history
+      - users:read
+    user:
+      - search:read
+settings:
+  org_deploy_enabled: false
+  socket_mode_enabled: false
+"##).unwrap();
+
+        let result = load_manifest(path.to_str().unwrap()).unwrap();
+        assert_eq!(result["display_information"]["name"], "Test App");
+        assert_eq!(result["display_information"]["background_color"], "#000000");
+        let bot_scopes = result["oauth_config"]["scopes"]["bot"].as_array().unwrap();
+        assert_eq!(bot_scopes.len(), 8);
+        assert_eq!(result["settings"]["socket_mode_enabled"], false);
     }
 }
