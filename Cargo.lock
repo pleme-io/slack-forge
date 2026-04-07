@@ -1540,6 +1540,7 @@ dependencies = [
  "shellexpand",
  "similar",
  "tempfile",
+ "thiserror",
  "todoku",
  "tokio",
 ]

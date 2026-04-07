@@ -1,20 +1,58 @@
-use anyhow::{Context, Result};
 use similar::{ChangeTag, TextDiff};
 use std::fmt::Write as _;
 use std::path::Path;
 
+/// Errors that can occur while loading or resolving manifest files.
+#[derive(Debug, thiserror::Error)]
+pub enum ManifestError {
+    /// The manifest file could not be read from disk.
+    #[error("failed to read manifest from {path}: {source}")]
+    ReadFailed {
+        path: String,
+        source: std::io::Error,
+    },
+
+    /// The manifest file contains invalid YAML.
+    #[error("invalid YAML in {path}: {source}")]
+    InvalidYaml {
+        path: String,
+        source: serde_yaml_ng::Error,
+    },
+
+    /// No manifest file was found in the current directory.
+    #[error("no manifest file found (tried: {candidates}). Use --manifest to specify.")]
+    NotFound { candidates: String },
+}
+
 /// Load a YAML manifest file and convert to JSON (Slack API expects JSON).
-pub fn load_manifest(path: &str) -> Result<serde_json::Value> {
+///
+/// Performs tilde expansion on the path before reading.
+///
+/// # Errors
+///
+/// Returns [`ManifestError::ReadFailed`] if the file cannot be read, or
+/// [`ManifestError::InvalidYaml`] if parsing fails.
+pub fn load_manifest(path: &str) -> Result<serde_json::Value, ManifestError> {
     let expanded = shellexpand::tilde(path).to_string();
     let content = std::fs::read_to_string(&expanded)
-        .with_context(|| format!("failed to read manifest from {expanded}"))?;
+        .map_err(|source| ManifestError::ReadFailed {
+            path: expanded.clone(),
+            source,
+        })?;
     let value: serde_json::Value =
-        serde_yaml_ng::from_str(&content).with_context(|| format!("invalid YAML in {expanded}"))?;
+        serde_yaml_ng::from_str(&content).map_err(|source| ManifestError::InvalidYaml {
+            path: expanded,
+            source,
+        })?;
     Ok(value)
 }
 
-/// Find manifest file: explicit path, or search for slack-app.yaml / slack-forge.yaml
-pub fn resolve_manifest_path(explicit: Option<&str>) -> Result<String> {
+/// Find manifest file: explicit path, or search for `slack-app.yaml` / `slack-forge.yaml` / `manifest.yaml`.
+///
+/// # Errors
+///
+/// Returns [`ManifestError::NotFound`] if no candidate file exists in the current directory.
+pub fn resolve_manifest_path(explicit: Option<&str>) -> Result<String, ManifestError> {
     if let Some(path) = explicit {
         return Ok(path.to_string());
     }
@@ -26,10 +64,9 @@ pub fn resolve_manifest_path(explicit: Option<&str>) -> Result<String> {
         }
     }
 
-    anyhow::bail!(
-        "no manifest file found (tried: {}). Use --manifest to specify.",
-        candidates.join(", ")
-    );
+    Err(ManifestError::NotFound {
+        candidates: candidates.join(", "),
+    })
 }
 
 /// Pretty-print a unified diff between two JSON values.
