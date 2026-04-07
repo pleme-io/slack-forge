@@ -74,6 +74,64 @@ fn extract_name(m: &serde_json::Value) -> String {
     m["display_information"]["name"].as_str().unwrap_or("unnamed").to_string()
 }
 
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use serde_json::json;
+
+    #[test]
+    fn extract_name_normal() {
+        let manifest = json!({"display_information": {"name": "My App"}});
+        assert_eq!(extract_name(&manifest), "My App");
+    }
+
+    #[test]
+    fn extract_name_missing_display_information() {
+        let manifest = json!({"features": {}});
+        assert_eq!(extract_name(&manifest), "unnamed");
+    }
+
+    #[test]
+    fn extract_name_missing_name_field() {
+        let manifest = json!({"display_information": {"description": "no name"}});
+        assert_eq!(extract_name(&manifest), "unnamed");
+    }
+
+    #[test]
+    fn extract_name_empty_object() {
+        assert_eq!(extract_name(&json!({})), "unnamed");
+    }
+
+    #[test]
+    fn extract_name_null_value() {
+        assert_eq!(extract_name(&json!(null)), "unnamed");
+    }
+
+    #[test]
+    fn extract_name_name_is_number_not_string() {
+        let manifest = json!({"display_information": {"name": 42}});
+        assert_eq!(extract_name(&manifest), "unnamed");
+    }
+
+    #[test]
+    fn extract_name_name_is_empty_string() {
+        let manifest = json!({"display_information": {"name": ""}});
+        assert_eq!(extract_name(&manifest), "");
+    }
+
+    #[test]
+    fn extract_name_with_unicode() {
+        let manifest = json!({"display_information": {"name": "アプリ名"}});
+        assert_eq!(extract_name(&manifest), "アプリ名");
+    }
+
+    #[test]
+    fn extract_name_with_special_chars() {
+        let manifest = json!({"display_information": {"name": "My App (v2.0) - Test"}});
+        assert_eq!(extract_name(&manifest), "My App (v2.0) - Test");
+    }
+}
+
 async fn cmd_apply(token: Option<&str>, manifest_path: Option<&str>) -> Result<()> {
     let token = config::resolve_token(token)?;
     let client = client::SlackClient::new(&token)?;

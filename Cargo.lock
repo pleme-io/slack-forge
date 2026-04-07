@@ -1539,6 +1539,7 @@ dependencies = [
  "serde_yaml_ng",
  "shellexpand",
  "similar",
+ "tempfile",
  "todoku",
  "tokio",
 ]
