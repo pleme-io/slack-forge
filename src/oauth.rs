@@ -27,12 +27,18 @@ struct AuthedUser {
     access_token: Option<String>,
 }
 
+/// The result of a successful OAuth install flow.
 #[derive(Debug)]
 pub struct InstallResult {
+    /// The bot-scoped OAuth token (`xoxb-...`).
     pub bot_token: String,
+    /// The user-scoped OAuth token (`xoxp-...`), if user scopes were requested.
     pub user_token: Option<String>,
+    /// The Slack workspace (team) ID the app was installed to.
     pub team_id: String,
+    /// The human-readable workspace name.
     pub team_name: String,
+    /// The bot user ID created for this app.
     pub bot_user_id: String,
 }
 

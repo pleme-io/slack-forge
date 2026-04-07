@@ -23,11 +23,16 @@ struct AppData {
     credentials: Option<AppCredentials>,
 }
 
+/// Credentials returned when creating a new Slack app via the Manifest API.
 #[derive(Debug, Deserialize, Serialize)]
 pub struct AppCredentials {
+    /// The app's OAuth client ID.
     pub client_id: Option<String>,
+    /// The app's OAuth client secret.
     pub client_secret: Option<String>,
+    /// Legacy verification token (deprecated by Slack in favor of signing secret).
     pub verification_token: Option<String>,
+    /// The signing secret used to verify requests from Slack.
     pub signing_secret: Option<String>,
 }
 
@@ -36,16 +41,23 @@ struct ManifestData {
     manifest: Option<serde_json::Value>,
 }
 
+/// A single validation error returned by the Slack manifest validate endpoint.
 #[derive(Debug, Deserialize, Serialize)]
 pub struct ManifestError {
+    /// Human-readable error description.
     pub message: String,
+    /// JSON pointer to the offending manifest field, if available.
     pub pointer: Option<String>,
 }
 
+/// An entry in the list of apps returned by the Slack API.
 #[derive(Debug, Deserialize, Serialize, Clone)]
 pub struct AppListEntry {
+    /// The Slack app ID.
     pub app_id: String,
+    /// The display name of the app.
     pub app_name: Option<String>,
+    /// Unix timestamp of the last update.
     pub last_updated: Option<u64>,
 }
 
