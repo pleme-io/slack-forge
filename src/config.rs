@@ -64,8 +64,10 @@ impl ForgeState {
 
 pub fn resolve_token(explicit: Option<&str>) -> Result<String> {
     if let Some(t) = explicit { return Ok(t.to_string()); }
-    if let Ok(t) = std::env::var("SLACK_CONFIG_TOKEN") {
-        if !t.is_empty() { return Ok(t); }
+    if let Ok(t) = std::env::var("SLACK_CONFIG_TOKEN")
+        && !t.is_empty()
+    {
+        return Ok(t);
     }
     let token_file = dirs::config_dir()
         .unwrap_or_else(|| PathBuf::from("~/.config"))

@@ -1,5 +1,6 @@
 use anyhow::{Context, Result};
 use similar::{ChangeTag, TextDiff};
+use std::fmt::Write as _;
 use std::path::Path;
 
 /// Load a YAML manifest file and convert to JSON (Slack API expects JSON).
@@ -21,7 +22,7 @@ pub fn resolve_manifest_path(explicit: Option<&str>) -> Result<String> {
     let candidates = ["slack-app.yaml", "slack-forge.yaml", "manifest.yaml"];
     for name in &candidates {
         if Path::new(name).exists() {
-            return Ok(name.to_string());
+            return Ok((*name).to_string());
         }
     }
 
@@ -45,7 +46,7 @@ pub fn diff_manifests(current: &serde_json::Value, desired: &serde_json::Value) 
             ChangeTag::Insert => "+",
             ChangeTag::Equal => " ",
         };
-        output.push_str(&format!("{sign}{change}"));
+        let _ = write!(output, "{sign}{change}");
     }
 
     output

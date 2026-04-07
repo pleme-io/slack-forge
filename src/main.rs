@@ -13,7 +13,7 @@ struct Cli {
     #[command(subcommand)]
     command: Command,
 
-    /// Configuration token (xoxe.xoxp-...). Also reads SLACK_CONFIG_TOKEN env or ~/.config/slack-forge/config-token
+    /// Configuration token (xoxe.xoxp-...). Also reads `SLACK_CONFIG_TOKEN` env or ~/.config/slack-forge/config-token
     #[arg(long, global = true)]
     token: Option<String>,
 }
@@ -227,7 +227,10 @@ async fn cmd_install(_token: Option<&str>, manifest_path: Option<&str>, explicit
     }
 
     // Write bot token to file for easy sops import
-    let token_path = config::ForgeState::path().parent().unwrap().join("bot-token");
+    let state_path = config::ForgeState::path();
+    let token_path = state_path.parent()
+        .ok_or_else(|| anyhow::anyhow!("state path has no parent directory"))?
+        .join("bot-token");
     std::fs::write(&token_path, &result.bot_token)?;
     #[cfg(unix)]
     { use std::os::unix::fs::PermissionsExt; std::fs::set_permissions(&token_path, std::fs::Permissions::from_mode(0o600))?; }
@@ -314,8 +317,10 @@ fn cmd_status() -> Result<()> {
         println!("  Manifest:   {}", app.manifest_path);
         println!("  Team:       {}", app.team_id.as_deref().unwrap_or("not installed"));
         println!("  Bot Token:  {}", app.bot_token.as_ref()
-            .map(|t| format!("{}...{}", &t[..std::cmp::min(10,t.len())], &t[t.len().saturating_sub(4)..]))
-            .unwrap_or_else(|| "none (run 'install')".into()));
+            .map_or_else(
+                || "none (run 'install')".into(),
+                |t| format!("{}...{}", &t[..std::cmp::min(10, t.len())], &t[t.len().saturating_sub(4)..]),
+            ));
         println!("  Updated:    {}", app.last_updated.as_deref().unwrap_or("never"));
         println!();
     }

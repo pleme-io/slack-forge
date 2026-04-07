@@ -36,20 +36,10 @@ struct ManifestData {
     manifest: Option<serde_json::Value>,
 }
 
-#[derive(Debug, Deserialize)]
-struct ValidationData {
-    errors: Option<Vec<ManifestError>>,
-}
-
 #[derive(Debug, Deserialize, Serialize)]
 pub struct ManifestError {
     pub message: String,
     pub pointer: Option<String>,
-}
-
-#[derive(Debug, Deserialize)]
-struct AppListData {
-    apps: Option<Vec<AppListEntry>>,
 }
 
 #[derive(Debug, Deserialize, Serialize, Clone)]
@@ -147,7 +137,7 @@ impl SlackClient {
             return Ok(errs);
         }
 
-        if parsed.get("ok").and_then(|v| v.as_bool()) == Some(true) {
+        if parsed.get("ok").and_then(serde_json::Value::as_bool) == Some(true) {
             return Ok(vec![]);
         }
 
@@ -169,6 +159,11 @@ impl SlackClient {
 mod tests {
     use super::*;
     use serde_json::json;
+
+    #[derive(Debug, Deserialize)]
+    struct ValidationData {
+        errors: Option<Vec<ManifestError>>,
+    }
 
     #[test]
     fn manifest_string_produces_valid_json() {
