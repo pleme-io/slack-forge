@@ -142,3 +142,167 @@ fn extract_code(request: &str) -> Result<String> {
 
     bail!("no auth code in callback URL: {path}");
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn extract_code_standard_callback() {
+        let request = "GET /callback?code=abc123&state=xyz HTTP/1.1\r\nHost: localhost\r\n\r\n";
+        let code = extract_code(request).unwrap();
+        assert_eq!(code, "abc123");
+    }
+
+    #[test]
+    fn extract_code_code_only_no_other_params() {
+        let request = "GET /callback?code=mycode HTTP/1.1\r\n\r\n";
+        assert_eq!(extract_code(request).unwrap(), "mycode");
+    }
+
+    #[test]
+    fn extract_code_code_in_middle_of_params() {
+        let request = "GET /callback?state=s&code=middle_code&other=v HTTP/1.1\r\n\r\n";
+        assert_eq!(extract_code(request).unwrap(), "middle_code");
+    }
+
+    #[test]
+    fn extract_code_code_at_end() {
+        let request = "GET /callback?state=s&code=last_code HTTP/1.1\r\n\r\n";
+        assert_eq!(extract_code(request).unwrap(), "last_code");
+    }
+
+    #[test]
+    fn extract_code_long_code_value() {
+        let long_code = "a".repeat(256);
+        let request = format!("GET /callback?code={long_code} HTTP/1.1\r\n\r\n");
+        assert_eq!(extract_code(&request).unwrap(), long_code);
+    }
+
+    #[test]
+    fn extract_code_with_url_encoded_chars() {
+        let request = "GET /callback?code=abc%20def HTTP/1.1\r\n\r\n";
+        assert_eq!(extract_code(request).unwrap(), "abc%20def");
+    }
+
+    #[test]
+    fn extract_code_error_param_returns_denied() {
+        let request = "GET /callback?error=access_denied HTTP/1.1\r\n\r\n";
+        let err = extract_code(request).unwrap_err();
+        assert!(err.to_string().contains("OAuth denied"), "unexpected error: {err}");
+    }
+
+    #[test]
+    fn extract_code_error_with_description() {
+        let request = "GET /callback?error=access_denied&error_description=user+denied HTTP/1.1\r\n\r\n";
+        let err = extract_code(request).unwrap_err();
+        assert!(err.to_string().contains("OAuth denied"));
+    }
+
+    #[test]
+    fn extract_code_no_query_string() {
+        let request = "GET /callback HTTP/1.1\r\n\r\n";
+        let err = extract_code(request).unwrap_err();
+        assert!(err.to_string().contains("no auth code"), "unexpected error: {err}");
+    }
+
+    #[test]
+    fn extract_code_empty_request() {
+        let err = extract_code("").unwrap_err();
+        assert!(err.to_string().contains("no auth code"));
+    }
+
+    #[test]
+    fn extract_code_no_code_param() {
+        let request = "GET /callback?state=xyz&other=val HTTP/1.1\r\n\r\n";
+        let err = extract_code(request).unwrap_err();
+        assert!(err.to_string().contains("no auth code"));
+    }
+
+    #[test]
+    fn extract_code_empty_code_value() {
+        let request = "GET /callback?code= HTTP/1.1\r\n\r\n";
+        let code = extract_code(request).unwrap();
+        assert_eq!(code, "");
+    }
+
+    #[test]
+    fn extract_code_malformed_http_request() {
+        let request = "not a real http request";
+        let err = extract_code(request).unwrap_err();
+        assert!(err.to_string().contains("no auth code"));
+    }
+
+    #[test]
+    fn extract_code_post_request_with_code() {
+        let request = "POST /callback?code=post_code HTTP/1.1\r\n\r\n";
+        assert_eq!(extract_code(request).unwrap(), "post_code");
+    }
+
+    #[test]
+    fn extract_code_param_named_code_prefix_not_confused() {
+        let request = "GET /callback?codeword=wrong&code=right HTTP/1.1\r\n\r\n";
+        assert_eq!(extract_code(request).unwrap(), "right");
+    }
+
+    #[test]
+    fn install_result_struct_fields() {
+        let result = InstallResult {
+            bot_token: "xoxb-test".to_string(),
+            user_token: Some("xoxp-user".to_string()),
+            team_id: "T123".to_string(),
+            team_name: "Test Team".to_string(),
+            bot_user_id: "U456".to_string(),
+        };
+        assert_eq!(result.bot_token, "xoxb-test");
+        assert_eq!(result.user_token.as_deref(), Some("xoxp-user"));
+    }
+
+    #[test]
+    fn install_result_no_user_token() {
+        let result = InstallResult {
+            bot_token: "xoxb-test".to_string(),
+            user_token: None,
+            team_id: "T123".to_string(),
+            team_name: "Test Team".to_string(),
+            bot_user_id: "U456".to_string(),
+        };
+        assert!(result.user_token.is_none());
+    }
+
+    #[test]
+    fn oauth_response_deserialization() {
+        let json_str = r#"{
+            "ok": true,
+            "access_token": "xoxb-bot",
+            "team": {"id": "T1", "name": "My Team"},
+            "bot_user_id": "U1",
+            "authed_user": {"access_token": "xoxp-user"}
+        }"#;
+        let resp: OAuthResponse = serde_json::from_str(json_str).unwrap();
+        assert!(resp.ok);
+        assert_eq!(resp.access_token.unwrap(), "xoxb-bot");
+        assert_eq!(resp.team.unwrap().id.unwrap(), "T1");
+        assert_eq!(resp.authed_user.unwrap().access_token.unwrap(), "xoxp-user");
+    }
+
+    #[test]
+    fn oauth_response_error_deserialization() {
+        let json_str = r#"{"ok": false, "error": "invalid_code"}"#;
+        let resp: OAuthResponse = serde_json::from_str(json_str).unwrap();
+        assert!(!resp.ok);
+        assert_eq!(resp.error.unwrap(), "invalid_code");
+        assert!(resp.access_token.is_none());
+    }
+
+    #[test]
+    fn oauth_response_minimal_fields() {
+        let json_str = r#"{"ok": true}"#;
+        let resp: OAuthResponse = serde_json::from_str(json_str).unwrap();
+        assert!(resp.ok);
+        assert!(resp.access_token.is_none());
+        assert!(resp.team.is_none());
+        assert!(resp.bot_user_id.is_none());
+        assert!(resp.authed_user.is_none());
+    }
+}
