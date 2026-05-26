@@ -5048,7 +5048,7 @@ rec {
       };
       "slack-forge" = rec {
         crateName = "slack-forge";
-        version = "0.1.0";
+        version = "0.1.1";
         edition = "2024";
         crateBin = [
           {
