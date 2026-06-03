@@ -1,6 +1,6 @@
 {
   "schema_version": 1,
-  "cargo_lock_sha256": "336cdad1522ce870f3bafdf6dca7a7d679143b7d2846021d7926b01b6390ee7b",
+  "cargo_lock_sha256": "d1283c7fe356bb85bd305f0b7183670cf213264da1b4467b549062d5b2e6c342",
   "target_resolves": {
     "base": {
       "adler2-2.0.1": {
@@ -10127,7 +10127,7 @@
     }
   },
   "git_nar_sha256": {
-    "todoku-0.1.0": "sha256-vzp5OIzN/wbYBldGS5vcC445G9NFYzx5cxBoG2M8Qr8="
+    "todoku-0.1.0": "sha256-kt105sM49CK+FMrSGG0uk/pFgoOAU8Q2bfYwHj8SIaA="
   },
   "flake_metadata": {}
 }
