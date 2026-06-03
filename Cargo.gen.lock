@@ -1,6 +1,6 @@
 {
   "schema_version": 1,
-  "cargo_lock_sha256": "d1283c7fe356bb85bd305f0b7183670cf213264da1b4467b549062d5b2e6c342",
+  "cargo_lock_sha256": "fc4bff13a918ee080a0aa432350615458b3d80fcb0f19bd419c8036766904a83",
   "target_resolves": {
     "base": {
       "adler2-2.0.1": {
@@ -256,14 +256,14 @@
           "std"
         ]
       },
-      "bitflags-2.11.1": {
+      "bitflags-2.12.1": {
         "runtime_dependencies": [],
         "build_dependencies": [],
         "features": [
           "std"
         ]
       },
-      "brotli-8.0.2": {
+      "brotli-8.0.3": {
         "runtime_dependencies": [
           {
             "name": "alloc_no_stdlib",
@@ -287,7 +287,7 @@
           },
           {
             "name": "brotli_decompressor",
-            "package_key": "brotli-decompressor-5.0.0",
+            "package_key": "brotli-decompressor-5.0.1",
             "kind": "normal",
             "features": [],
             "uses_default_features": true,
@@ -303,7 +303,7 @@
           "std"
         ]
       },
-      "brotli-decompressor-5.0.0": {
+      "brotli-decompressor-5.0.1": {
         "runtime_dependencies": [
           {
             "name": "alloc_no_stdlib",
@@ -340,7 +340,7 @@
           "std"
         ]
       },
-      "cc-1.2.62": {
+      "cc-1.2.63": {
         "runtime_dependencies": [
           {
             "name": "find_msvc_tools",
@@ -354,7 +354,7 @@
           },
           {
             "name": "shlex",
-            "package_key": "shlex-1.3.0",
+            "package_key": "shlex-2.0.1",
             "kind": "normal",
             "features": [],
             "uses_default_features": true,
@@ -583,7 +583,7 @@
         "runtime_dependencies": [
           {
             "name": "brotli",
-            "package_key": "brotli-8.0.2",
+            "package_key": "brotli-8.0.3",
             "kind": "normal",
             "features": [],
             "uses_default_features": true,
@@ -613,7 +613,7 @@
           },
           {
             "name": "memchr",
-            "package_key": "memchr-2.8.0",
+            "package_key": "memchr-2.8.1",
             "kind": "normal",
             "features": [],
             "uses_default_features": true,
@@ -716,7 +716,7 @@
           },
           {
             "name": "log",
-            "package_key": "log-0.4.30",
+            "package_key": "log-0.4.31",
             "kind": "normal",
             "features": [],
             "uses_default_features": true,
@@ -878,7 +878,7 @@
         "build_dependencies": [],
         "features": []
       },
-      "displaydoc-0.2.5": {
+      "displaydoc-0.2.6": {
         "runtime_dependencies": [
           {
             "name": "proc_macro2",
@@ -1659,7 +1659,7 @@
           "std"
         ]
       },
-      "hyper-1.9.0": {
+      "hyper-1.10.1": {
         "runtime_dependencies": [
           {
             "name": "atomic_waker",
@@ -1819,7 +1819,7 @@
           },
           {
             "name": "hyper",
-            "package_key": "hyper-1.9.0",
+            "package_key": "hyper-1.10.1",
             "kind": "normal",
             "features": [],
             "uses_default_features": false,
@@ -1922,7 +1922,7 @@
           },
           {
             "name": "hyper",
-            "package_key": "hyper-1.9.0",
+            "package_key": "hyper-1.10.1",
             "kind": "normal",
             "features": [],
             "uses_default_features": true,
@@ -1988,7 +1988,7 @@
         "runtime_dependencies": [
           {
             "name": "displaydoc",
-            "package_key": "displaydoc-0.2.5",
+            "package_key": "displaydoc-0.2.6",
             "kind": "normal",
             "features": [],
             "uses_default_features": false,
@@ -2063,7 +2063,7 @@
         "runtime_dependencies": [
           {
             "name": "displaydoc",
-            "package_key": "displaydoc-0.2.5",
+            "package_key": "displaydoc-0.2.6",
             "kind": "normal",
             "features": [],
             "uses_default_features": false,
@@ -2275,7 +2275,7 @@
         "runtime_dependencies": [
           {
             "name": "displaydoc",
-            "package_key": "displaydoc-0.2.5",
+            "package_key": "displaydoc-0.2.6",
             "kind": "normal",
             "features": [],
             "uses_default_features": false,
@@ -2528,7 +2528,7 @@
           "default"
         ]
       },
-      "log-0.4.30": {
+      "log-0.4.31": {
         "runtime_dependencies": [],
         "build_dependencies": [],
         "features": []
@@ -2538,7 +2538,7 @@
         "build_dependencies": [],
         "features": []
       },
-      "memchr-2.8.0": {
+      "memchr-2.8.1": {
         "runtime_dependencies": [],
         "build_dependencies": [],
         "features": [
@@ -2582,7 +2582,7 @@
           "with-alloc"
         ]
       },
-      "mio-1.2.0": {
+      "mio-1.2.1": {
         "runtime_dependencies": [
           {
             "name": "libc",
@@ -2743,7 +2743,7 @@
         "runtime_dependencies": [
           {
             "name": "zerocopy",
-            "package_key": "zerocopy-0.8.48",
+            "package_key": "zerocopy-0.8.50",
             "kind": "normal",
             "features": [
               "simd"
@@ -2911,7 +2911,7 @@
           },
           {
             "name": "socket2",
-            "package_key": "socket2-0.6.3",
+            "package_key": "socket2-0.6.4",
             "kind": "normal",
             "features": [],
             "uses_default_features": true,
@@ -3113,7 +3113,7 @@
           },
           {
             "name": "socket2",
-            "package_key": "socket2-0.6.3",
+            "package_key": "socket2-0.6.4",
             "kind": "normal",
             "features": [],
             "uses_default_features": true,
@@ -3354,7 +3354,7 @@
           },
           {
             "name": "hyper",
-            "package_key": "hyper-1.9.0",
+            "package_key": "hyper-1.10.1",
             "kind": "normal",
             "features": [
               "http1",
@@ -3397,7 +3397,7 @@
           },
           {
             "name": "log",
-            "package_key": "log-0.4.30",
+            "package_key": "log-0.4.31",
             "kind": "normal",
             "features": [],
             "uses_default_features": true,
@@ -3899,7 +3899,7 @@
           },
           {
             "name": "memchr",
-            "package_key": "memchr-2.8.0",
+            "package_key": "memchr-2.8.1",
             "kind": "normal",
             "features": [],
             "uses_default_features": false,
@@ -4057,7 +4057,7 @@
           "tilde"
         ]
       },
-      "shlex-1.3.0": {
+      "shlex-2.0.1": {
         "runtime_dependencies": [],
         "build_dependencies": [],
         "features": [
@@ -4112,7 +4112,7 @@
           "std"
         ]
       },
-      "slack-forge-0.1.1": {
+      "slack-forge-0.1.2": {
         "runtime_dependencies": [
           {
             "name": "anyhow",
@@ -4275,7 +4275,7 @@
           "const_new"
         ]
       },
-      "socket2-0.6.3": {
+      "socket2-0.6.4": {
         "runtime_dependencies": [
           {
             "name": "libc",
@@ -4652,7 +4652,7 @@
         "runtime_dependencies": [
           {
             "name": "displaydoc",
-            "package_key": "displaydoc-0.2.5",
+            "package_key": "displaydoc-0.2.6",
             "kind": "normal",
             "features": [],
             "uses_default_features": false,
@@ -4831,7 +4831,7 @@
           },
           {
             "name": "mio",
-            "package_key": "mio-1.2.0",
+            "package_key": "mio-1.2.1",
             "kind": "normal",
             "features": [],
             "uses_default_features": false,
@@ -4841,7 +4841,7 @@
           },
           {
             "name": "mio",
-            "package_key": "mio-1.2.0",
+            "package_key": "mio-1.2.1",
             "kind": "normal",
             "features": [],
             "uses_default_features": false,
@@ -4881,7 +4881,7 @@
           },
           {
             "name": "socket2",
-            "package_key": "socket2-0.6.3",
+            "package_key": "socket2-0.6.4",
             "kind": "normal",
             "features": [
               "all"
@@ -5183,7 +5183,7 @@
           },
           {
             "name": "bitflags",
-            "package_key": "bitflags-2.11.1",
+            "package_key": "bitflags-2.12.1",
             "kind": "normal",
             "features": [],
             "uses_default_features": true,
@@ -5671,7 +5671,7 @@
         "build_dependencies": [],
         "features": []
       },
-      "zerocopy-0.8.48": {
+      "zerocopy-0.8.50": {
         "runtime_dependencies": [],
         "build_dependencies": [],
         "features": [
@@ -5756,7 +5756,7 @@
         "runtime_dependencies": [
           {
             "name": "displaydoc",
-            "package_key": "displaydoc-0.2.5",
+            "package_key": "displaydoc-0.2.6",
             "kind": "normal",
             "features": [],
             "uses_default_features": false,
@@ -6009,7 +6009,7 @@
               },
               {
                 "name": "hyper",
-                "package_key": "hyper-1.9.0",
+                "package_key": "hyper-1.10.1",
                 "kind": "normal",
                 "features": [],
                 "uses_default_features": true,
@@ -6059,7 +6059,7 @@
               },
               {
                 "name": "socket2",
-                "package_key": "socket2-0.6.3",
+                "package_key": "socket2-0.6.4",
                 "kind": "normal",
                 "features": [
                   "all"
@@ -6246,7 +6246,7 @@
             "build_dependencies": [
               {
                 "name": "cc",
-                "package_key": "cc-1.2.62",
+                "package_key": "cc-1.2.63",
                 "kind": "build",
                 "features": [],
                 "uses_default_features": false,
@@ -6266,7 +6266,7 @@
             "runtime_dependencies": [
               {
                 "name": "bitflags",
-                "package_key": "bitflags-2.11.1",
+                "package_key": "bitflags-2.12.1",
                 "kind": "normal",
                 "features": [],
                 "uses_default_features": false,
@@ -6337,7 +6337,7 @@
             "runtime_dependencies": [
               {
                 "name": "bitflags",
-                "package_key": "bitflags-2.11.1",
+                "package_key": "bitflags-2.12.1",
                 "kind": "normal",
                 "features": [],
                 "uses_default_features": true,
@@ -6427,7 +6427,7 @@
             "runtime_dependencies": [
               {
                 "name": "bitflags",
-                "package_key": "bitflags-2.11.1",
+                "package_key": "bitflags-2.12.1",
                 "kind": "normal",
                 "features": [],
                 "uses_default_features": true,
@@ -6619,7 +6619,7 @@
               },
               {
                 "name": "hyper",
-                "package_key": "hyper-1.9.0",
+                "package_key": "hyper-1.10.1",
                 "kind": "normal",
                 "features": [],
                 "uses_default_features": true,
@@ -6669,7 +6669,7 @@
               },
               {
                 "name": "socket2",
-                "package_key": "socket2-0.6.3",
+                "package_key": "socket2-0.6.4",
                 "kind": "normal",
                 "features": [
                   "all"
@@ -6836,7 +6836,7 @@
             "build_dependencies": [
               {
                 "name": "cc",
-                "package_key": "cc-1.2.62",
+                "package_key": "cc-1.2.63",
                 "kind": "build",
                 "features": [],
                 "uses_default_features": false,
@@ -6856,7 +6856,7 @@
             "runtime_dependencies": [
               {
                 "name": "bitflags",
-                "package_key": "bitflags-2.11.1",
+                "package_key": "bitflags-2.12.1",
                 "kind": "normal",
                 "features": [],
                 "uses_default_features": false,
@@ -6927,7 +6927,7 @@
             "runtime_dependencies": [
               {
                 "name": "bitflags",
-                "package_key": "bitflags-2.11.1",
+                "package_key": "bitflags-2.12.1",
                 "kind": "normal",
                 "features": [],
                 "uses_default_features": true,
@@ -7017,7 +7017,7 @@
             "runtime_dependencies": [
               {
                 "name": "bitflags",
-                "package_key": "bitflags-2.11.1",
+                "package_key": "bitflags-2.12.1",
                 "kind": "normal",
                 "features": [],
                 "uses_default_features": true,
@@ -7164,7 +7164,7 @@
               },
               {
                 "name": "hyper",
-                "package_key": "hyper-1.9.0",
+                "package_key": "hyper-1.10.1",
                 "kind": "normal",
                 "features": [],
                 "uses_default_features": true,
@@ -7214,7 +7214,7 @@
               },
               {
                 "name": "socket2",
-                "package_key": "socket2-0.6.3",
+                "package_key": "socket2-0.6.4",
                 "kind": "normal",
                 "features": [
                   "all"
@@ -7292,7 +7292,7 @@
             "runtime_dependencies": [
               {
                 "name": "log",
-                "package_key": "log-0.4.30",
+                "package_key": "log-0.4.31",
                 "kind": "normal",
                 "features": [],
                 "uses_default_features": true,
@@ -7340,7 +7340,7 @@
             "runtime_dependencies": [
               {
                 "name": "bitflags",
-                "package_key": "bitflags-2.11.1",
+                "package_key": "bitflags-2.12.1",
                 "kind": "normal",
                 "features": [],
                 "uses_default_features": true,
@@ -7463,7 +7463,7 @@
             "build_dependencies": [
               {
                 "name": "cc",
-                "package_key": "cc-1.2.62",
+                "package_key": "cc-1.2.63",
                 "kind": "build",
                 "features": [],
                 "uses_default_features": true,
@@ -7535,7 +7535,7 @@
             "build_dependencies": [
               {
                 "name": "cc",
-                "package_key": "cc-1.2.62",
+                "package_key": "cc-1.2.63",
                 "kind": "build",
                 "features": [],
                 "uses_default_features": false,
@@ -7555,7 +7555,7 @@
             "runtime_dependencies": [
               {
                 "name": "bitflags",
-                "package_key": "bitflags-2.11.1",
+                "package_key": "bitflags-2.12.1",
                 "kind": "normal",
                 "features": [],
                 "uses_default_features": false,
@@ -7736,7 +7736,7 @@
               },
               {
                 "name": "hyper",
-                "package_key": "hyper-1.9.0",
+                "package_key": "hyper-1.10.1",
                 "kind": "normal",
                 "features": [],
                 "uses_default_features": true,
@@ -7786,7 +7786,7 @@
               },
               {
                 "name": "socket2",
-                "package_key": "socket2-0.6.3",
+                "package_key": "socket2-0.6.4",
                 "kind": "normal",
                 "features": [
                   "all"
@@ -7864,7 +7864,7 @@
             "runtime_dependencies": [
               {
                 "name": "log",
-                "package_key": "log-0.4.30",
+                "package_key": "log-0.4.31",
                 "kind": "normal",
                 "features": [],
                 "uses_default_features": true,
@@ -7912,7 +7912,7 @@
             "runtime_dependencies": [
               {
                 "name": "bitflags",
-                "package_key": "bitflags-2.11.1",
+                "package_key": "bitflags-2.12.1",
                 "kind": "normal",
                 "features": [],
                 "uses_default_features": true,
@@ -8035,7 +8035,7 @@
             "build_dependencies": [
               {
                 "name": "cc",
-                "package_key": "cc-1.2.62",
+                "package_key": "cc-1.2.63",
                 "kind": "build",
                 "features": [],
                 "uses_default_features": true,
@@ -8107,7 +8107,7 @@
             "build_dependencies": [
               {
                 "name": "cc",
-                "package_key": "cc-1.2.62",
+                "package_key": "cc-1.2.63",
                 "kind": "build",
                 "features": [],
                 "uses_default_features": false,
@@ -8127,7 +8127,7 @@
             "runtime_dependencies": [
               {
                 "name": "bitflags",
-                "package_key": "bitflags-2.11.1",
+                "package_key": "bitflags-2.12.1",
                 "kind": "normal",
                 "features": [],
                 "uses_default_features": false,
@@ -8308,7 +8308,7 @@
               },
               {
                 "name": "hyper",
-                "package_key": "hyper-1.9.0",
+                "package_key": "hyper-1.10.1",
                 "kind": "normal",
                 "features": [],
                 "uses_default_features": true,
@@ -8358,7 +8358,7 @@
               },
               {
                 "name": "socket2",
-                "package_key": "socket2-0.6.3",
+                "package_key": "socket2-0.6.4",
                 "kind": "normal",
                 "features": [
                   "all"
@@ -8436,7 +8436,7 @@
             "runtime_dependencies": [
               {
                 "name": "log",
-                "package_key": "log-0.4.30",
+                "package_key": "log-0.4.31",
                 "kind": "normal",
                 "features": [],
                 "uses_default_features": true,
@@ -8484,7 +8484,7 @@
             "runtime_dependencies": [
               {
                 "name": "bitflags",
-                "package_key": "bitflags-2.11.1",
+                "package_key": "bitflags-2.12.1",
                 "kind": "normal",
                 "features": [],
                 "uses_default_features": true,
@@ -8607,7 +8607,7 @@
             "build_dependencies": [
               {
                 "name": "cc",
-                "package_key": "cc-1.2.62",
+                "package_key": "cc-1.2.63",
                 "kind": "build",
                 "features": [],
                 "uses_default_features": true,
@@ -8699,7 +8699,7 @@
             "build_dependencies": [
               {
                 "name": "cc",
-                "package_key": "cc-1.2.62",
+                "package_key": "cc-1.2.63",
                 "kind": "build",
                 "features": [],
                 "uses_default_features": false,
@@ -8719,7 +8719,7 @@
             "runtime_dependencies": [
               {
                 "name": "bitflags",
-                "package_key": "bitflags-2.11.1",
+                "package_key": "bitflags-2.12.1",
                 "kind": "normal",
                 "features": [],
                 "uses_default_features": false,
@@ -8900,7 +8900,7 @@
               },
               {
                 "name": "hyper",
-                "package_key": "hyper-1.9.0",
+                "package_key": "hyper-1.10.1",
                 "kind": "normal",
                 "features": [],
                 "uses_default_features": true,
@@ -8950,7 +8950,7 @@
               },
               {
                 "name": "socket2",
-                "package_key": "socket2-0.6.3",
+                "package_key": "socket2-0.6.4",
                 "kind": "normal",
                 "features": [
                   "all"
@@ -9028,7 +9028,7 @@
             "runtime_dependencies": [
               {
                 "name": "log",
-                "package_key": "log-0.4.30",
+                "package_key": "log-0.4.31",
                 "kind": "normal",
                 "features": [],
                 "uses_default_features": true,
@@ -9076,7 +9076,7 @@
             "runtime_dependencies": [
               {
                 "name": "bitflags",
-                "package_key": "bitflags-2.11.1",
+                "package_key": "bitflags-2.12.1",
                 "kind": "normal",
                 "features": [],
                 "uses_default_features": true,
@@ -9199,7 +9199,7 @@
             "build_dependencies": [
               {
                 "name": "cc",
-                "package_key": "cc-1.2.62",
+                "package_key": "cc-1.2.63",
                 "kind": "build",
                 "features": [],
                 "uses_default_features": true,
@@ -9291,7 +9291,7 @@
             "build_dependencies": [
               {
                 "name": "cc",
-                "package_key": "cc-1.2.62",
+                "package_key": "cc-1.2.63",
                 "kind": "build",
                 "features": [],
                 "uses_default_features": false,
@@ -9311,7 +9311,7 @@
             "runtime_dependencies": [
               {
                 "name": "bitflags",
-                "package_key": "bitflags-2.11.1",
+                "package_key": "bitflags-2.12.1",
                 "kind": "normal",
                 "features": [],
                 "uses_default_features": false,
@@ -9464,10 +9464,10 @@
     "base64-0.22.1": {
       "edition": "2018"
     },
-    "bitflags-2.11.1": {
+    "bitflags-2.12.1": {
       "edition": "2021"
     },
-    "brotli-8.0.2": {
+    "brotli-8.0.3": {
       "edition": "2015",
       "binaries": [
         {
@@ -9480,7 +9480,7 @@
         }
       ]
     },
-    "brotli-decompressor-5.0.0": {
+    "brotli-decompressor-5.0.1": {
       "edition": "2015",
       "binaries": [
         {
@@ -9492,7 +9492,7 @@
     "bytes-1.11.1": {
       "edition": "2021"
     },
-    "cc-1.2.62": {
+    "cc-1.2.63": {
       "edition": "2018"
     },
     "cfg-if-1.0.4": {
@@ -9542,15 +9542,6 @@
     "cookie_store-0.22.1": {
       "edition": "2021"
     },
-    "core-foundation-0.9.4": {
-      "edition": "2018"
-    },
-    "core-foundation-0.10.1": {
-      "edition": "2021"
-    },
-    "core-foundation-sys-0.8.7": {
-      "edition": "2018"
-    },
     "crc32fast-1.5.0": {
       "edition": "2021",
       "build_script": "build.rs"
@@ -9567,7 +9558,7 @@
     "dirs-sys-0.5.0": {
       "edition": "2015"
     },
-    "displaydoc-0.2.5": {
+    "displaydoc-0.2.6": {
       "edition": "2021",
       "proc_macro": true
     },
@@ -9603,6 +9594,12 @@
         "name": "fnv",
         "path": "lib.rs"
       }
+    },
+    "foreign-types-0.3.2": {
+      "edition": "2015"
+    },
+    "foreign-types-shared-0.1.1": {
+      "edition": "2015"
     },
     "form_urlencoded-1.2.2": {
       "edition": "2018"
@@ -9655,7 +9652,7 @@
       "edition": "2018",
       "build_script": "build.rs"
     },
-    "hyper-1.9.0": {
+    "hyper-1.10.1": {
       "edition": "2021"
     },
     "hyper-rustls-0.27.9": {
@@ -9718,6 +9715,9 @@
       "edition": "2021",
       "build_script": "build.rs"
     },
+    "linux-raw-sys-0.12.1": {
+      "edition": "2021"
+    },
     "litemap-0.8.2": {
       "edition": "2021"
     },
@@ -9727,13 +9727,13 @@
     "lock_api-0.4.14": {
       "edition": "2021"
     },
-    "log-0.4.30": {
+    "log-0.4.31": {
       "edition": "2021"
     },
     "lru-slab-0.1.2": {
       "edition": "2021"
     },
-    "memchr-2.8.0": {
+    "memchr-2.8.1": {
       "edition": "2021"
     },
     "mime-0.3.17": {
@@ -9742,7 +9742,7 @@
     "miniz_oxide-0.8.9": {
       "edition": "2021"
     },
-    "mio-1.2.0": {
+    "mio-1.2.1": {
       "edition": "2021"
     },
     "native-tls-0.2.18": {
@@ -9759,6 +9759,22 @@
     "once_cell-1.21.4": {
       "edition": "2021"
     },
+    "openssl-0.10.80": {
+      "edition": "2021",
+      "build_script": "build.rs"
+    },
+    "openssl-macros-0.1.1": {
+      "edition": "2018",
+      "proc_macro": true
+    },
+    "openssl-probe-0.2.1": {
+      "edition": "2021"
+    },
+    "openssl-sys-0.9.116": {
+      "edition": "2021",
+      "build_script": "build/main.rs",
+      "links": "openssl"
+    },
     "option-ext-0.2.0": {
       "edition": "2015"
     },
@@ -9773,6 +9789,9 @@
       "edition": "2018"
     },
     "pin-project-lite-0.2.17": {
+      "edition": "2018"
+    },
+    "pkg-config-0.3.33": {
       "edition": "2018"
     },
     "potential_utf-0.1.5": {
@@ -9856,12 +9875,6 @@
     "scopeguard-1.2.0": {
       "edition": "2015"
     },
-    "security-framework-3.7.0": {
-      "edition": "2024"
-    },
-    "security-framework-sys-2.17.0": {
-      "edition": "2021"
-    },
     "serde-1.0.228": {
       "edition": "2021",
       "build_script": "build.rs"
@@ -9887,8 +9900,8 @@
     "shellexpand-3.1.2": {
       "edition": "2018"
     },
-    "shlex-1.3.0": {
-      "edition": "2015"
+    "shlex-2.0.1": {
+      "edition": "2018"
     },
     "signal-hook-registry-1.4.8": {
       "edition": "2015"
@@ -9902,7 +9915,7 @@
     "slab-0.4.12": {
       "edition": "2018"
     },
-    "slack-forge-0.1.1": {
+    "slack-forge-0.1.2": {
       "edition": "2024",
       "binaries": [
         {
@@ -9914,7 +9927,7 @@
     "smallvec-1.15.1": {
       "edition": "2018"
     },
-    "socket2-0.6.3": {
+    "socket2-0.6.4": {
       "edition": "2021"
     },
     "stable_deref_trait-1.2.1": {
@@ -9934,13 +9947,6 @@
     },
     "synstructure-0.13.2": {
       "edition": "2018"
-    },
-    "system-configuration-0.7.0": {
-      "edition": "2021"
-    },
-    "system-configuration-sys-0.6.0": {
-      "edition": "2021",
-      "build_script": "build.rs"
     },
     "tempfile-3.27.0": {
       "edition": "2021"
@@ -10044,6 +10050,9 @@
     "utf8parse-0.2.2": {
       "edition": "2018"
     },
+    "vcpkg-0.2.15": {
+      "edition": "2015"
+    },
     "version_check-0.9.5": {
       "edition": "2015"
     },
@@ -10066,7 +10075,7 @@
       "edition": "2021",
       "proc_macro": true
     },
-    "zerocopy-0.8.48": {
+    "zerocopy-0.8.50": {
       "edition": "2021",
       "build_script": "build.rs"
     },
@@ -10094,40 +10103,31 @@
       "edition": "2021",
       "build_script": "build.rs"
     },
-    "foreign-types-0.3.2": {
-      "edition": "2015"
-    },
-    "foreign-types-shared-0.1.1": {
-      "edition": "2015"
-    },
-    "linux-raw-sys-0.12.1": {
-      "edition": "2021"
-    },
-    "openssl-0.10.80": {
-      "edition": "2021",
-      "build_script": "build.rs"
-    },
-    "openssl-macros-0.1.1": {
-      "edition": "2018",
-      "proc_macro": true
-    },
-    "openssl-probe-0.2.1": {
-      "edition": "2021"
-    },
-    "openssl-sys-0.9.116": {
-      "edition": "2021",
-      "build_script": "build/main.rs",
-      "links": "openssl"
-    },
-    "pkg-config-0.3.33": {
+    "core-foundation-0.9.4": {
       "edition": "2018"
     },
-    "vcpkg-0.2.15": {
-      "edition": "2015"
+    "core-foundation-0.10.1": {
+      "edition": "2021"
+    },
+    "core-foundation-sys-0.8.7": {
+      "edition": "2018"
+    },
+    "security-framework-3.7.0": {
+      "edition": "2024"
+    },
+    "security-framework-sys-2.17.0": {
+      "edition": "2021"
+    },
+    "system-configuration-0.7.0": {
+      "edition": "2021"
+    },
+    "system-configuration-sys-0.6.0": {
+      "edition": "2021",
+      "build_script": "build.rs"
     }
   },
   "git_nar_sha256": {
-    "todoku-0.1.0": "sha256-kt105sM49CK+FMrSGG0uk/pFgoOAU8Q2bfYwHj8SIaA="
+    "todoku-0.1.0": "sha256-20mDuwWNmYTyGgSGgFTHUmQcrXhnRp2XO4oRbtE9oF4="
   },
   "flake_metadata": {}
 }
